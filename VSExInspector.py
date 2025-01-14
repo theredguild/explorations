@@ -79,6 +79,63 @@ def unique_extensions(extensions):
     return unique
 
 
+def download_vsix(extension):
+    """Download the VSIX file for the given extension and unzip it."""
+    version = extension["versions"][0]["version"]
+    publisher = extension["publisher"]["publisherName"]
+    name = extension["extensionName"]
+    vsix_url = next(file["source"] for file in extension["versions"][0]["files"] if file["assetType"] == "Microsoft.VisualStudio.Services.VSIXPackage")
+
+    response = requests.get(vsix_url)
+    response.raise_for_status()
+
+    # Create the ext_downloads directory if it doesn't exist
+    downloads_dir = "ext_downloads"
+    os.makedirs(downloads_dir, exist_ok=True)
+
+    output_dir = os.path.join(downloads_dir, f"{publisher}.{name}_{version}")
+    os.makedirs(output_dir, exist_ok=True)
+
+    with zipfile.ZipFile(BytesIO(response.content)) as zip_file:
+        zip_file.extractall(output_dir)
+    print(f"  VSIX downloaded and unzipped to {output_dir}")
+
+
+def download_only(publisher_extension):
+    """Download a specific VSIX file by publisher.extensionname."""
+    publisher, extension_name = publisher_extension.split(".")
+    print(f"Fetching {publisher_extension}...")
+    body = {
+        "filters": [
+            {
+                "criteria": [
+                    {"filterType": 8, "value": "Microsoft.VisualStudio.Code"},
+                    {"filterType": 10, "value": extension_name}
+                ],
+                "pageNumber": 1,
+                "pageSize": 1,
+                "sortBy": 4,
+                "sortOrder": 0
+            }
+        ],
+        "assetTypes": [],
+        "flags": 914
+    }
+
+    response = requests.post(API_URL, headers=HEADERS, json=body)
+    response.raise_for_status()
+    extensions = response.json()["results"][0]["extensions"]
+
+    if extensions:
+        ext = extensions[0]
+        if ext["publisher"]["publisherName"] == publisher:
+            download_vsix(ext)
+        else:
+            print(f"Error: {publisher_extension} not found.")
+    else:
+        print(f"Error: {publisher_extension} not found.")
+
+
 def analyze_extension(extension):
     """Analyze an extension for suspicious characteristics."""
     total_checks = 5
@@ -129,6 +186,7 @@ def analyze_extension(extension):
 def display_extension_details(extension, analyze=False):
     """Print all the information about an extension in a human-readable format."""
     full_name = f"[{extension['publisher']['publisherName']}.{extension['extensionName']}]"
+    print(f"")
     print(full_name)
     print(f"  Display Name: {extension['displayName']}")
     print(f"  Publisher: {extension['publisher']['displayName']} ({extension['publisher']['publisherName']})")
@@ -144,26 +202,36 @@ def display_extension_details(extension, analyze=False):
         for warning in warnings:
             print(f"    Warning: {warning}")
 
-
 def main():
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Fetch and display VSCode extensions from the Marketplace.")
-    parser.add_argument("--keywords", type=str, required=True, help="Comma-separated keywords to search for extensions.")
+    parser.add_argument("--keywords", type=str, help="Comma-separated keywords to search for extensions.")
     parser.add_argument("--range-days", type=int, default=7, help="Number of days to filter extensions by date.")
+    parser.add_argument("--download", action="store_true", help="Download and unzip VSIX files for all matched extensions.")
+    parser.add_argument("--download-only", type=str, help="Download a specific VSIX file by publisher.extensionname.")
     parser.add_argument("--analyze", action="store_true", help="Analyze extensions for suspicious characteristics.")
     args = parser.parse_args()
 
+    if args.download_only:
+        if any([args.keywords, args.range_days != 7, args.analyze, args.download]):
+            print("Error: --download-only cannot be used with other options.")
+            return
+        download_only(args.download_only)
+        return
+
     # Convert keywords into a list
-    keywords = [kw.strip() for kw in args.keywords.split(",")]
+    keywords = [kw.strip() for kw in args.keywords.split(",")] if args.keywords else []
 
     # Fetch and process extensions
     extensions = fetch_extensions(keywords)
     extensions = filter_extensions_by_date(extensions, args.range_days)
     extensions = unique_extensions(extensions)
 
-    # Display and optionally analyze extensions
+    # Display and optionally analyze/download extensions
     for ext in extensions:
         display_extension_details(ext, analyze=args.analyze)
+        if args.download:
+            download_vsix(ext)
 
 
 if __name__ == "__main__":
