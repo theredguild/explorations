@@ -48,8 +48,43 @@ def fetch_extensions(keywords, page_size=100):
 
     return all_extensions
 
+def fetch_specific_extension(publisher_extension):
+    """Fetch details of a specific extension by publisher.extensionname."""
+    publisher, extension_name = publisher_extension.split(".")
+    print(f"Fetching information for {publisher_extension}...")
+    body = {
+        "filters": [
+            {
+                "criteria": [
+                    {"filterType": 8, "value": "Microsoft.VisualStudio.Code"},
+                    {"filterType": 10, "value": extension_name}
+                ],
+                "pageNumber": 1,
+                "pageSize": 1,
+                "sortBy": 4,
+                "sortOrder": 0
+            }
+        ],
+        "assetTypes": [],
+        "flags": 914
+    }
 
-def filter_extensions_by_date(extensions, days):
+    response = requests.post(API_URL, headers=HEADERS, json=body)
+    response.raise_for_status()
+    extensions = response.json()["results"][0]["extensions"]
+
+    if extensions:
+        ext = extensions[0]
+        if ext["publisher"]["publisherName"] == publisher:
+            return ext
+        else:
+            print(f"Error: {publisher_extension} not found.")
+            return None
+    else:
+        print(f"Error: {publisher_extension} not found.")
+        return None
+
+def filter_extensions_by_date(extensions, days, date_type):
     """Filter extensions that were published, updated, or released within the last `days` days."""
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
     filtered_extensions = []
@@ -60,8 +95,7 @@ def filter_extensions_by_date(extensions, days):
             "lastUpdated": datetime.fromisoformat(ext.get("lastUpdated", "1970-01-01T00:00:00.000+00:00").replace("Z", "+00:00")),
             "releaseDate": datetime.fromisoformat(ext.get("releaseDate", "1970-01-01T00:00:00.000+00:00").replace("Z", "+00:00")),
         }
-
-        if any(date >= cutoff_date for date in dates.values()):
+        if dates[date_type] >= cutoff_date:
             filtered_extensions.append(ext)
 
     return filtered_extensions
@@ -183,18 +217,50 @@ def analyze_extension(extension):
     return suspicious_checks, total_checks, warnings
 
 
-def display_extension_details(extension, analyze=False):
+def display_extension_details(extension, analyze=False, info=False):
     """Print all the information about an extension in a human-readable format."""
     full_name = f"[{extension['publisher']['publisherName']}.{extension['extensionName']}]"
     print(f"")
     print(full_name)
     print(f"  Display Name: {extension['displayName']}")
-    print(f"  Publisher: {extension['publisher']['displayName']} ({extension['publisher']['publisherName']})")
+    print(f"  Publisher: {extension['publisher']['displayName']} ({extension['publisher']
+    ['publisherName']})")
     print(f"  Domain: {extension['publisher']['domain'] or 'N/A'} (Verified: {extension['publisher']['isDomainVerified']})")
     print(f"  Published Date: {format_date(extension.get('publishedDate'))}")
     print(f"  Last Updated: {format_date(extension.get('lastUpdated'))}")
     print(f"  Release Date: {format_date(extension.get('releaseDate'))}")
     print(f"  Description: {extension.get('shortDescription')}")
+
+    if info:
+        print("\n  Additional Information:",)
+        print(f"    PublisherId: {extension["publisher"]["publisherId"]}")
+        print(f"    Publisher Flags: {extension["publisher"]["flags"]}") ## ad as a warning not verified
+        print(f"    ExtensionId: {extension["extensionId"]}")
+        print(f"    Extension Flags: {extension["flags"]}")
+        print(f"    Short Description: {extension["shortDescription"]}")
+
+        for prop in extension["versions"][0]["properties"]:
+            if prop['key'] in [
+                "Microsoft.VisualStudio.Services.Links.Getstarted",
+                "Microsoft.VisualStudio.Services.Links.Support",
+                "Microsoft.VisualStudio.Services.Links.Learn",
+                "Microsoft.VisualStudio.Services.Links.Source",
+                "Microsoft.VisualStudio.Services.Links.GitHub"
+            ]:
+                print(f"    {prop['key'].split('.')[-1]}: {prop['value']}")
+        for file in extension["versions"][0]["files"]:
+            if file['assetType'] in [
+                "Microsoft.VisualStudio.Services.Content.Changelog",
+                "Microsoft.VisualStudio.Services.Content.Details"
+            ]:
+                print(f"    {file['assetType'].split('.')[-1]}: {file['source']}")
+        print(f"\n    More statistics:")
+        for stat in extension["statistics"]:
+            if stat['statisticName'] in [
+                "trendingdaily", "trendingmonthly", "trendingweekly",
+                "updateCount", "weightedRating"
+            ]:
+                print(f"      {stat['statisticName']}: {stat['value']}")
 
     if analyze:
         suspicious_checks, total_checks, warnings = analyze_extension(extension)
@@ -202,15 +268,31 @@ def display_extension_details(extension, analyze=False):
         for warning in warnings:
             print(f"    Warning: {warning}")
 
+
 def main():
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Fetch and display VSCode extensions from the Marketplace.")
     parser.add_argument("--keywords", type=str, help="Comma-separated keywords to search for extensions.")
+    parser.add_argument("--date-type", type=str, default="publishedDate", help="releaseDate, publishedDate or lastUpdated")
     parser.add_argument("--range-days", type=int, default=7, help="Number of days to filter extensions by date.")
     parser.add_argument("--download", action="store_true", help="Download and unzip VSIX files for all matched extensions.")
     parser.add_argument("--download-only", type=str, help="Download a specific VSIX file by publisher.extensionname.")
     parser.add_argument("--analyze", action="store_true", help="Analyze extensions for suspicious characteristics.")
+    parser.add_argument("--info", action="store_true", help="Display additional informational fields for extensions.")
+    parser.add_argument("--info-only", type=str, help="Fetch and display full information for a specific publisher.extension.")
     args = parser.parse_args()
+
+    if args.info_only:
+        # Explicitly check if conflicting arguments are set
+        if any([args.keywords, args.download, args.download_only, args.analyze, args.info, args.range_days != 7]):
+            print("Error: --info-only cannot be used with other options.")
+            return
+        
+        extension = fetch_specific_extension(args.info_only)
+        if extension:
+            display_extension_details(extension, analyze=False, info=True)
+        return
+
 
     if args.download_only:
         if any([args.keywords, args.range_days != 7, args.analyze, args.download]):
@@ -224,15 +306,16 @@ def main():
 
     # Fetch and process extensions
     extensions = fetch_extensions(keywords)
-    extensions = filter_extensions_by_date(extensions, args.range_days)
+    extensions = filter_extensions_by_date(extensions, args.range_days, args.date_type)
     extensions = unique_extensions(extensions)
 
     # Display and optionally analyze/download extensions
     for ext in extensions:
-        display_extension_details(ext, analyze=args.analyze)
+        display_extension_details(ext, analyze=args.analyze, info=args.info)
         if args.download:
             download_vsix(ext)
 
 
 if __name__ == "__main__":
     main()
+
