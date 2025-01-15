@@ -16,6 +16,15 @@ show_help() {
     exit 1
 }
 
+# Function to validate the API response
+validate_response() {
+    RESPONSE="$1"
+    if [ -z "$RESPONSE" ] || [ "$(echo "$RESPONSE" | jq -r '.results[0].extensions | length')" -eq 0 ]; then
+        echo "Error: Extension not found or no metadata available for analysis."
+        exit 1
+    fi
+}
+
 # Download function
 download_extension() {
     EXTENSION_NAME="$1"
@@ -37,6 +46,9 @@ download_extension() {
               ],
               \"flags\": 131
             }")
+
+    # Validate response
+    validate_response "$RESPONSE"
 
     # Extract the VSIX download URL
     VSIX_URL=$(echo "$RESPONSE" | jq -r '.results[0].extensions[0].versions[0].files[] | select(.assetType == "Microsoft.VisualStudio.Services.VSIXPackage") | .source')
@@ -92,6 +104,9 @@ score_extension() {
               \"flags\": 131
             }")
 
+    # Validate response
+    validate_response "$RESPONSE"
+
     # Extract metadata
     PUBLISHER=$(echo "$RESPONSE" | jq -r '.results[0].extensions[0].publisher.publisherName')
     DISPLAY_NAME=$(echo "$RESPONSE" | jq -r '.results[0].extensions[0].displayName')
@@ -100,6 +115,12 @@ score_extension() {
     RATING=$(echo "$RESPONSE" | jq -r '.results[0].extensions[0].statistics[] | select(.statisticName == "averagerating") | .value')
     REVIEW_COUNT=$(echo "$RESPONSE" | jq -r '.results[0].extensions[0].statistics[] | select(.statisticName == "ratingcount") | .value')
     EXTENSION_VERSION=$(echo "$RESPONSE" | jq -r '.results[0].extensions[0].versions[0].version')
+
+    # Additional validation
+    if [ -z "$PUBLISHER" ] || [ -z "$DISPLAY_NAME" ]; then
+        echo "Error: Missing critical metadata (e.g., publisher or display name)."
+        exit 1
+    fi
 
     # Analyze publisher metadata
     NUM_EXTENSIONS=$(echo "$RESPONSE" | jq -r '.results[0].extensions | length')
