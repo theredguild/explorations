@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Visual Studio Code Extension Inspector</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="switch-container">
+    <label class="switch">
+      <input type="checkbox" id="themeToggle">
+      <span class="slider round"></span>
+      <span id="themeIcon" style="margin-left: 0.5rem;">🌙</span>
+    </label>
+  </div>
+
+  <main>
+    <header>
+      <h1>VSCode Extension Inspector</h1>
+    </header>
+
+    <div class="input-container">
+      <input type="text" id="extensionInput" placeholder="publisher.extensionName" />
+      <button onclick="scoreExtension()">Score!</button>
+    </div>
+    <div id="results" style="display:none;"></div>
+  </main>
+
+  <footer>
+    Part of an exploration by The Red Guild 🪷
+  </footer>
+
+  <script src="inspector.js"></script>
+</body>
+</html>
