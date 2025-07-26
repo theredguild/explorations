@@ -5,7 +5,7 @@ setup(
     name="devsec-audit",
     version="1.0.0",
     description="DevSecOps Security Auditor - Lynis-style tool for development environments",
-    author="DevSec Audit Team",
+    author="theredguild",
     packages=find_packages(),
     install_requires=[
         "click>=8.0.0",

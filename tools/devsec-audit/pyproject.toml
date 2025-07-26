@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
 authors = [
-    { name = "DevSec Audit Team", email = "devsec@example.com" },
+    { name = "theredguild" },
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -52,10 +52,10 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/devsec-tools/devsec-audit"
-Repository = "https://github.com/devsec-tools/devsec-audit.git"
-Issues = "https://github.com/devsec-tools/devsec-audit/issues"
-Documentation = "https://github.com/devsec-tools/devsec-audit#readme"
+Homepage = "https://github.com/theredguild/explorations"
+Repository = "https://github.com/theredguild/explorations.git"
+Issues = "https://github.com/theredguild/explorations/issues"
+Documentation = "https://github.com/theredguild/explorations/tree/main/tools/devsec-audit#readme"
 
 [project.scripts]
 devsec-audit = "core.cli:main"
