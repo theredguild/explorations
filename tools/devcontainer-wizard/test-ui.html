@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quick UI Test</title>
+</head>
+<body>
+    <h1>DevContainer Wizard UI Test</h1>
+    
+    <form id="wizardForm">
+        <h3>Security:</h3>
+        <input type="radio" name="security" value="minimal" checked> Minimal<br>
+        <input type="radio" name="security" value="secure"> Secure<br>
+        
+        <h3>Shell:</h3>
+        <input type="radio" name="shell" value="bash" checked> Bash<br>
+        <input type="radio" name="shell" value="zsh"> Zsh<br>
+        
+        <h3>Tools:</h3>
+        <input type="checkbox" name="tools" value="solidity"> Solidity<br>
+        <input type="checkbox" name="tools" value="nodejs"> Node.js<br>
+        
+        <h3>Security Tools:</h3>
+        <input type="checkbox" name="security-tools" value="static-analysis"> Static Analysis<br>
+        
+        <h3>Features:</h3>
+        <input type="checkbox" name="features" value="git"> Git<br>
+        <input type="checkbox" name="features" value="ports"> Ports<br>
+        <input type="checkbox" name="features" value="ipfs"> IPFS<br>
+        
+        <button type="submit">Generate</button>
+    </form>
+    
+    <div id="validation-results" style="display: none;">
+        <div id="validation-messages"></div>
+    </div>
+    
+    <div id="output" style="display: none;">
+        <h3>Output:</h3>
+        <h4>devcontainer.json:</h4>
+        <pre id="devcontainer-content"></pre>
+        <h4>Dockerfile:</h4>
+        <div id="dockerfile-output">
+            <pre id="dockerfile-content"></pre>
+        </div>
+        
+        <div id="launch-options">
+            <h3>Launch Options:</h3>
+            <button onclick="launchCodespaces()">GitHub Codespaces</button>
+            <button onclick="launchGitpod()">Gitpod</button>
+            <button onclick="showLocalInstructions()">Local</button>
+            <button onclick="downloadDevContainerZip()">Download ZIP</button>
+        </div>
+        
+        <div id="launch-instructions" style="display: none;"></div>
+    </div>
+    
+    <script src="wizard.js"></script>
+    <script>
+        // Test that the wizard initializes correctly
+        setTimeout(() => {
+            console.log('✅ Testing wizard initialization...');
+            
+            // Simulate form submission
+            const form = document.getElementById('wizardForm');
+            if (form) {
+                console.log('✅ Form found');
+                
+                // Check form data
+                const solidity = document.querySelector('input[name="tools"][value="solidity"]');
+                const ipfs = document.querySelector('input[name="features"][value="ipfs"]');
+                const ports = document.querySelector('input[name="features"][value="ports"]');
+                
+                if (solidity && ipfs && ports) {
+                    // Select some options
+                    solidity.checked = true;
+                    ipfs.checked = true;
+                    ports.checked = true;
+                    
+                    console.log('✅ Options selected');
+                    
+                    // Submit form
+                    const submitEvent = new Event('submit');
+                    form.dispatchEvent(submitEvent);
+                    
+                    console.log('✅ Form submitted');
+                } else {
+                    console.log('❌ Form elements not found');
+                }
+            } else {
+                console.log('❌ Form not found');
+            }
+        }, 500);
+    </script>
+</body>
+</html>

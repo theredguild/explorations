@@ -1,0 +1,74 @@
+{
+    "name": "Isolated Security Research Environment",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "JuanBlanco.solidity",
+                "tintinweb.vscode-decompiler",
+                "ms-vscode.vscode-json",
+                "tintinweb.vscode-inline-bookmarks"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "files.autoSave": "off",
+                "editor.formatOnSave": false,
+                "git.enabled": false,
+                "extensions.ignoreRecommendations": true,
+                "workbench.startupEditor": "none",
+                "editor.minimap.enabled": false,
+                "breadcrumbs.enabled": false,
+                "workbench.activityBar.visible": false,
+                "workbench.statusBar.visible": false,
+                "editor.lineNumbers": "on",
+                "editor.rulers": [80],
+                "workbench.colorTheme": "Default Dark+",
+                "security.workspace.trust.enabled": false
+            }
+        }
+    },
+    
+    "forwardPorts": [],
+    
+    "postCreateCommand": "chmod +x .devcontainer/isolation-setup.sh && ./.devcontainer/isolation-setup.sh",
+    
+    "remoteUser": "isolated",
+    
+    "mounts": [
+        "source=${localWorkspaceFolder},target=/quarantine,type=bind,consistency=cached,readonly=true"
+    ],
+    
+    "workspaceFolder": "/quarantine",
+    
+    "containerEnv": {
+        "DEBIAN_FRONTEND": "noninteractive",
+        "ISOLATION_MODE": "maximum",
+        "NETWORK_DISABLED": "true",
+        "FILESYSTEM_READONLY": "true",
+        "QUARANTINE_ACTIVE": "true"
+    },
+    
+    "runArgs": [
+        "--security-opt", "no-new-privileges:true",
+        "--security-opt", "seccomp=/quarantine/.devcontainer/isolation-seccomp.json",
+        "--cap-drop", "ALL",
+        "--read-only",
+        "--tmpfs", "/tmp:rw,noexec,nosuid,nodev,size=256m",
+        "--tmpfs", "/home/isolated/.cache:rw,noexec,nosuid,nodev,size=64m", 
+        "--tmpfs", "/var/log:rw,noexec,nosuid,nodev,size=32m",
+        "--tmpfs", "/var/tmp:rw,noexec,nosuid,nodev,size=32m",
+        "--network", "none",
+        "--memory", "512m",
+        "--cpus", "1.0",
+        "--pids-limit", "64",
+        "--ulimit", "nofile=64:64",
+        "--ulimit", "nproc=32:32"
+    ],
+    
+    "initializeCommand": "echo '⚫ Initializing maximum isolation environment...'",
+    
+    "postStartCommand": "echo '🔒 ISOLATED ENVIRONMENT ACTIVE - Maximum security mode'"
+}

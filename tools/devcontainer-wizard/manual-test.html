@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Test - DevContainer Wizard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .test-log { background: #f5f5f5; padding: 10px; height: 300px; overflow-y: auto; font-family: monospace; }
+        .error { color: red; }
+        .success { color: green; }
+        .warning { color: orange; }
+        button { margin: 5px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Manual DevContainer Wizard Testing</h1>
+    
+    <div class="test-section">
+        <h3>Test Controls</h3>
+        <button onclick="testAllCombinations()">🔄 Test All Combinations</button>
+        <button onclick="testIPFS()">🌐 Test IPFS Specifically</button>
+        <button onclick="testDependencyOrder()">📋 Test Dependency Order</button>
+        <button onclick="clearLog()">🧹 Clear Log</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test Log</h3>
+        <div id="testLog" class="test-log"></div>
+    </div>
+    
+    <!-- Hidden wizard form for testing -->
+    <div style="display: none;">
+        <form id="wizardForm">
+            <!-- Security -->
+            <input type="radio" name="security" value="minimal"> Minimal
+            <input type="radio" name="security" value="secure"> Secure  
+            <input type="radio" name="security" value="hardened"> Hardened
+            <input type="radio" name="security" value="auditor"> Auditor
+            
+            <!-- Shell -->
+            <input type="radio" name="shell" value="bash"> Bash
+            <input type="radio" name="shell" value="zsh"> Zsh
+            <input type="radio" name="shell" value="fish"> Fish
+            
+            <!-- Tools -->
+            <input type="checkbox" name="tools" value="solidity"> Solidity
+            <input type="checkbox" name="tools" value="hardhat"> Hardhat
+            <input type="checkbox" name="tools" value="foundry"> Foundry
+            <input type="checkbox" name="tools" value="vyper"> Vyper
+            <input type="checkbox" name="tools" value="rust"> Rust
+            <input type="checkbox" name="tools" value="go"> Go
+            <input type="checkbox" name="tools" value="nodejs"> Node.js
+            <input type="checkbox" name="tools" value="python"> Python
+            
+            <!-- Security Tools -->
+            <input type="checkbox" name="security-tools" value="fuzzing"> Fuzzing
+            <input type="checkbox" name="security-tools" value="static-analysis"> Static Analysis
+            <input type="checkbox" name="security-tools" value="symbolic-execution"> Symbolic Execution
+            <input type="checkbox" name="security-tools" value="decompilers"> Decompilers
+            <input type="checkbox" name="security-tools" value="forensics"> Forensics
+            
+            <!-- Features -->
+            <input type="checkbox" name="features" value="git"> Git
+            <input type="checkbox" name="features" value="asdf"> asdf
+            <input type="checkbox" name="features" value="nvm"> nvm
+            <input type="checkbox" name="features" value="package-managers"> Package Managers
+            <input type="checkbox" name="features" value="docker"> Docker
+            <input type="checkbox" name="features" value="extensions"> Extensions
+            <input type="checkbox" name="features" value="ports"> Ports
+            <input type="checkbox" name="features" value="ipfs"> IPFS
+        </form>
+        
+        <div id="validation-results" style="display: none;">
+            <div id="validation-messages"></div>
+        </div>
+        
+        <div id="output" style="display: none;">
+            <div id="devcontainer-output">
+                <pre id="devcontainer-content"></pre>
+            </div>
+            <div id="dockerfile-output">
+                <pre id="dockerfile-content"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script src="wizard.js"></script>
+    <script>
+        let testLog = document.getElementById('testLog');
+        let wizard;
+        
+        // Initialize wizard after page loads
+        setTimeout(() => {
+            wizard = new DevContainerWizard();
+            log('✅ Wizard initialized for testing', 'success');
+        }, 100);
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '';
+            testLog.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            testLog.scrollTop = testLog.scrollHeight;
+        }
+
+        function clearLog() {
+            testLog.innerHTML = '';
+        }
+
+        function setFormValues(config) {
+            // Clear all inputs first
+            document.querySelectorAll('input[type="radio"]').forEach(input => input.checked = false);
+            document.querySelectorAll('input[type="checkbox"]').forEach(input => input.checked = false);
+            
+            // Set security
+            document.querySelector(`input[name="security"][value="${config.security}"]`).checked = true;
+            
+            // Set shell
+            document.querySelector(`input[name="shell"][value="${config.shell}"]`).checked = true;
+            
+            // Set tools
+            config.tools.forEach(tool => {
+                const input = document.querySelector(`input[name="tools"][value="${tool}"]`);
+                if (input) input.checked = true;
+            });
+            
+            // Set security tools
+            config.securityTools.forEach(tool => {
+                const input = document.querySelector(`input[name="security-tools"][value="${tool}"]`);
+                if (input) input.checked = true;
+            });
+            
+            // Set features
+            config.features.forEach(feature => {
+                const input = document.querySelector(`input[name="features"][value="${feature}"]`);
+                if (input) input.checked = true;
+            });
+        }
+
+        function testConfiguration(name, config) {
+            log(`🧪 Testing: ${name}`, 'info');
+            log(`   Config: ${JSON.stringify(config)}`, 'info');
+            
+            try {
+                setFormValues(config);
+                
+                // Generate configuration
+                const formData = wizard.getFormData();
+                const devcontainerConfig = wizard.buildDevContainerConfig(formData);
+                const dockerfile = wizard.buildDockerfile(formData);
+                
+                // Check for common issues
+                const issues = analyzeGenerated(name, devcontainerConfig, dockerfile, formData);
+                
+                if (issues.length === 0) {
+                    log(`✅ ${name}: OK`, 'success');
+                } else {
+                    log(`⚠️ ${name}: ${issues.length} issues found`, 'warning');
+                    issues.forEach(issue => log(`   • ${issue}`, 'warning'));
+                }
+                
+                return { name, config, devcontainerConfig, dockerfile, issues };
+                
+            } catch (error) {
+                log(`❌ ${name}: ERROR - ${error.message}`, 'error');
+                return { name, config, error: error.message };
+            }
+        }
+
+        function analyzeGenerated(name, devcontainerConfig, dockerfile, formData) {
+            const issues = [];
+            
+            // Check IPFS
+            if (formData.features.includes('ipfs')) {
+                if (!dockerfile || !dockerfile.includes('ipfs')) {
+                    issues.push('IPFS feature selected but not installed in Dockerfile');
+                }
+                if (!devcontainerConfig.forwardPorts || !devcontainerConfig.forwardPorts.includes(5001)) {
+                    issues.push('IPFS ports not forwarded');
+                }
+            }
+            
+            // Check tool dependencies
+            if (formData.tools.includes('solidity')) {
+                if (!dockerfile || !dockerfile.includes('python3')) {
+                    issues.push('Solidity needs Python3 for solc-select but not installed');
+                }
+            }
+            
+            // Check security tools dependencies
+            formData.securityTools.forEach(toolGroup => {
+                if (!dockerfile || !dockerfile.includes('pip3')) {
+                    issues.push(`Security tool ${toolGroup} needs pip3 but not installed`);
+                }
+            });
+            
+            // Check package managers
+            if (formData.features.includes('package-managers')) {
+                if (dockerfile && dockerfile.includes('npm install -g yarn pnpm')) {
+                    if (!dockerfile.includes('node') && !formData.tools.includes('nodejs')) {
+                        issues.push('Package managers need Node.js but not installed');
+                    }
+                }
+            }
+            
+            // Check shell setup
+            if (formData.shell === 'zsh' && dockerfile) {
+                if (!dockerfile.includes('zsh')) {
+                    issues.push('Zsh shell selected but not installed');
+                }
+            }
+            
+            // Check Dockerfile instruction order
+            if (dockerfile) {
+                const lines = dockerfile.split('\n');
+                let lastInstallIndex = -1;
+                let userSetIndex = -1;
+                
+                lines.forEach((line, index) => {
+                    if (line.startsWith('RUN') && (line.includes('apt-get') || line.includes('pip3') || line.includes('npm'))) {
+                        lastInstallIndex = index;
+                    }
+                    if (line.startsWith('USER')) {
+                        userSetIndex = index;
+                    }
+                });
+                
+                if (userSetIndex !== -1 && lastInstallIndex > userSetIndex) {
+                    issues.push('Installation commands after USER directive - will fail');
+                }
+            }
+            
+            return issues;
+        }
+
+        function testIPFS() {
+            log('🌐 Testing IPFS specific configurations...', 'info');
+            
+            const ipfsConfigs = [
+                {
+                    name: 'IPFS Only',
+                    security: 'minimal',
+                    shell: 'bash',
+                    tools: [],
+                    securityTools: [],
+                    features: ['ipfs']
+                },
+                {
+                    name: 'IPFS + Node.js',
+                    security: 'minimal', 
+                    shell: 'bash',
+                    tools: ['nodejs'],
+                    securityTools: [],
+                    features: ['ipfs', 'ports']
+                },
+                {
+                    name: 'IPFS + Web3 Stack',
+                    security: 'secure',
+                    shell: 'zsh', 
+                    tools: ['solidity', 'nodejs'],
+                    securityTools: [],
+                    features: ['git', 'ipfs', 'ports', 'extensions']
+                }
+            ];
+            
+            ipfsConfigs.forEach(config => {
+                testConfiguration(config.name, config);
+            });
+        }
+
+        function testDependencyOrder() {
+            log('📋 Testing dependency order issues...', 'info');
+            
+            const orderConfigs = [
+                {
+                    name: 'Security Tools + Hardened',
+                    security: 'hardened',
+                    shell: 'bash',
+                    tools: ['solidity'],
+                    securityTools: ['static-analysis', 'fuzzing'],
+                    features: ['git']
+                },
+                {
+                    name: 'Multiple Languages',
+                    security: 'secure',
+                    shell: 'zsh',
+                    tools: ['solidity', 'rust', 'python', 'nodejs'],
+                    securityTools: [],
+                    features: ['package-managers', 'asdf']
+                },
+                {
+                    name: 'Full Stack + Security',
+                    security: 'hardened',
+                    shell: 'fish',
+                    tools: ['solidity', 'foundry', 'nodejs'],
+                    securityTools: ['static-analysis', 'symbolic-execution', 'decompilers'],
+                    features: ['git', 'docker', 'extensions', 'package-managers']
+                }
+            ];
+            
+            orderConfigs.forEach(config => {
+                testConfiguration(config.name, config);
+            });
+        }
+
+        function testAllCombinations() {
+            log('🔄 Testing critical combinations...', 'info');
+            
+            const criticalConfigs = [
+                // Test each security level
+                { name: 'Minimal Security', security: 'minimal', shell: 'bash', tools: [], securityTools: [], features: [] },
+                { name: 'Secure Profile', security: 'secure', shell: 'bash', tools: ['solidity'], securityTools: [], features: ['git'] },
+                { name: 'Hardened Profile', security: 'hardened', shell: 'bash', tools: ['solidity'], securityTools: ['static-analysis'], features: ['git'] },
+                { name: 'Auditor Profile', security: 'auditor', shell: 'bash', tools: ['solidity'], securityTools: ['fuzzing', 'static-analysis'], features: ['git'] },
+                
+                // Test each shell
+                { name: 'Bash Shell', security: 'minimal', shell: 'bash', tools: ['nodejs'], securityTools: [], features: ['git'] },
+                { name: 'Zsh Shell', security: 'minimal', shell: 'zsh', tools: ['nodejs'], securityTools: [], features: ['git'] },
+                { name: 'Fish Shell', security: 'minimal', shell: 'fish', tools: ['nodejs'], securityTools: [], features: ['git'] },
+                
+                // Test tool combinations
+                { name: 'Solidity Only', security: 'minimal', shell: 'bash', tools: ['solidity'], securityTools: [], features: ['git'] },
+                { name: 'Solidity + Hardhat', security: 'minimal', shell: 'bash', tools: ['solidity', 'hardhat'], securityTools: [], features: ['git'] },
+                { name: 'Solidity + Foundry', security: 'minimal', shell: 'bash', tools: ['solidity', 'foundry'], securityTools: [], features: ['git'] },
+                { name: 'Full Ethereum Stack', security: 'minimal', shell: 'bash', tools: ['solidity', 'hardhat', 'foundry'], securityTools: [], features: ['git'] },
+                
+                // Test IPFS
+                { name: 'IPFS Basic', security: 'minimal', shell: 'bash', tools: [], securityTools: [], features: ['ipfs'] },
+                { name: 'IPFS + Ports', security: 'minimal', shell: 'bash', tools: [], securityTools: [], features: ['ipfs', 'ports'] },
+                
+                // Test package managers
+                { name: 'Package Managers Only', security: 'minimal', shell: 'bash', tools: [], securityTools: [], features: ['package-managers'] },
+                { name: 'Package Managers + Node', security: 'minimal', shell: 'bash', tools: ['nodejs'], securityTools: [], features: ['package-managers'] },
+                
+                // Test security tools
+                { name: 'All Security Tools', security: 'hardened', shell: 'bash', tools: ['solidity'], securityTools: ['fuzzing', 'static-analysis', 'symbolic-execution', 'decompilers', 'forensics'], features: ['git'] }
+            ];
+            
+            let totalIssues = 0;
+            criticalConfigs.forEach(config => {
+                const result = testConfiguration(config.name, config);
+                if (result.issues) {
+                    totalIssues += result.issues.length;
+                }
+            });
+            
+            log(`\n📊 Summary: Found ${totalIssues} total issues across ${criticalConfigs.length} configurations`, totalIssues > 0 ? 'warning' : 'success');
+        }
+    </script>
+</body>
+</html>

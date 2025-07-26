@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Wizard Test</title>
+</head>
+<body>
+    <h1>DevContainer Wizard Test</h1>
+    
+    <form id="wizardForm">
+        <input type="radio" name="security" value="minimal" checked> Minimal<br>
+        <input type="radio" name="shell" value="bash" checked> Bash<br>
+        <input type="checkbox" name="tools" value="solidity"> Solidity<br>
+        <input type="checkbox" name="features" value="git"> Git<br>
+        <button type="submit">Generate</button>
+    </form>
+    
+    <div id="validation-results" style="display: none;">
+        <h3>⚠️ Configuration Issues</h3>
+        <div id="validation-messages"></div>
+    </div>
+    
+    <div id="output" style="display: none;">
+        <h3>📄 Generated Files</h3>
+        <div id="devcontainer-output">
+            <h4>devcontainer.json</h4>
+            <pre id="devcontainer-content"></pre>
+        </div>
+        <div id="dockerfile-output" style="display: none;">
+            <h4>Dockerfile</h4>
+            <pre id="dockerfile-content"></pre>
+        </div>
+    </div>
+    
+    <script src="wizard.js"></script>
+    <script>
+        // Test after page loads
+        setTimeout(() => {
+            console.log('Testing wizard functionality...');
+            
+            // Simulate form submission
+            const form = document.getElementById('wizardForm');
+            if (form) {
+                console.log('✅ Form found');
+                
+                // Check if wizard was initialized
+                const submitEvent = new Event('submit');
+                try {
+                    form.dispatchEvent(submitEvent);
+                    console.log('✅ Form submission test passed');
+                } catch (error) {
+                    console.log('❌ Form submission failed:', error.message);
+                }
+            } else {
+                console.log('❌ Form not found');
+            }
+        }, 100);
+    </script>
+</body>
+</html>

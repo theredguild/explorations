@@ -1,0 +1,76 @@
+{
+    "name": "Security Auditor Environment",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "JuanBlanco.solidity",
+                "tintinweb.solidity-visual-auditor",
+                "tintinweb.solidity-metrics",
+                "trailofbits.weaudit",
+                "trailofbits.contract-explorer",
+                "tintinweb.vscode-decompiler",
+                "Olympixai.olympix",
+                "tintinweb.vscode-ethover",
+                "tintinweb.vscode-solidity-flattener",
+                "tintinweb.graphviz-interactive-preview",
+                "tintinweb.vscode-solidity-language",
+                "tintinweb.vscode-inline-bookmarks",
+                "ryu1kn.partial-diff",
+                "ms-vscode.vscode-json"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "solidity-va.hover": true,
+                "solidity-va.diagnostics": true,
+                "solidity-va.outline": true,
+                "solidity-va.cdili_json": true,
+                "files.autoSave": "off",
+                "editor.formatOnSave": false,
+                "git.enabled": false,
+                "extensions.ignoreRecommendations": true,
+                "workbench.startupEditor": "none",
+                "editor.minimap.enabled": true,
+                "editor.rulers": [80, 120],
+                "breadcrumbs.enabled": true
+            }
+        }
+    },
+    
+    "forwardPorts": [],
+    
+    "postCreateCommand": "chmod +x .devcontainer/auditor-setup.sh && ./.devcontainer/auditor-setup.sh",
+    
+    "remoteUser": "auditor",
+    
+    "mounts": [
+        "source=${localWorkspaceFolder},target=/audit-workspace,type=bind,consistency=cached,readonly=true"
+    ],
+    
+    "workspaceFolder": "/audit-workspace",
+    
+    "containerEnv": {
+        "DEBIAN_FRONTEND": "noninteractive",
+        "AUDIT_MODE": "true",
+        "READ_ONLY_MODE": "true",
+        "NO_NETWORK_WRITE": "true"
+    },
+    
+    "runArgs": [
+        "--security-opt", "no-new-privileges:true",
+        "--security-opt", "seccomp=/audit-workspace/.devcontainer/auditor-seccomp.json",
+        "--cap-drop", "ALL",
+        "--read-only",
+        "--tmpfs", "/tmp:rw,noexec,nosuid,size=500m",
+        "--tmpfs", "/home/auditor/.cache:rw,noexec,nosuid,size=100m",
+        "--tmpfs", "/var/log:rw,noexec,nosuid,size=100m",
+        "--network", "none"
+    ],
+    
+    "initializeCommand": "echo '🔍 Initializing security audit environment...'",
+    
+    "postStartCommand": "echo '✅ Audit environment ready - Read-only mode active'"
+}

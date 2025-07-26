@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevContainer Wizard for Web3</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .wizard-content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+
+        .section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-item:hover {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 10px;
+            transform: scale(1.2);
+        }
+
+        .radio-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .radio-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .radio-item:hover {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+
+        .radio-item input[type="radio"] {
+            margin-right: 10px;
+            transform: scale(1.2);
+        }
+
+        .generate-btn {
+            background: var(--accent-color);
+            color: white;
+            padding: 15px 30px;
+            border: 1px solid var(--accent-color);
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            display: block;
+            margin: 30px auto;
+            min-width: 200px;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .generate-btn:hover {
+            background: transparent;
+            color: var(--accent-color);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+        }
+
+        .output-section {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .file-output {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 20px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+        }
+        
+        /* Light theme specific fix for code display */
+        :root .file-output {
+            background: #f8f9fa;
+            color: #2d3748;
+        }
+        
+        [data-theme="dark"] .file-output {
+            background: #1e1e1e;
+            color: #f8f8f2;
+        }
+
+        .download-btn {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 10px 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .download-btn:hover {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+            transform: translateY(-1px);
+        }
+
+        .description {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        .validation-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .validation-section h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .validation-message {
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+
+        .validation-warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+
+        .validation-error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }
+
+        .validation-info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            color: #0c5460;
+        }
+
+        .launch-section {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+        }
+
+        .launch-section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .launch-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .launch-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 15px 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            min-height: 50px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .launch-btn:hover {
+            border-color: var(--accent-color);
+            background: var(--accent-color);
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Specific button colors for branding */
+        .codespaces-btn {
+            border-color: #24292e;
+        }
+
+        .codespaces-btn:hover {
+            background: #24292e;
+            border-color: #24292e;
+        }
+
+        .gitpod-btn {
+            border-color: #ff8a00;
+        }
+
+        .gitpod-btn:hover {
+            background: #ff8a00;
+            border-color: #ff8a00;
+        }
+
+        .local-btn {
+            border-color: #28a745;
+        }
+
+        .local-btn:hover {
+            background: #28a745;
+            border-color: #28a745;
+        }
+
+        .zip-btn {
+            border-color: #6f42c1;
+        }
+
+        .zip-btn:hover {
+            background: #6f42c1;
+            border-color: #6f42c1;
+        }
+
+        .launch-instructions {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+            animation: slideDown 0.3s ease-out;
+            color: var(--text-primary);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .launch-instructions h4 {
+            color: #495057;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .launch-instructions pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+            overflow-x: auto;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+
+        .launch-instructions ol {
+            padding-left: 20px;
+        }
+
+        .launch-instructions li {
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+
+        .launch-instructions strong {
+            color: var(--text-accent);
+        }
+
+        .instruction-step {
+            background: var(--bg-tertiary);
+            border-left: 4px solid var(--accent-color);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 5px 5px 0;
+            color: var(--text-primary);
+        }
+
+        .instruction-code {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 12px;
+            border-radius: 5px;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+        }
+
+        .instruction-note {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 12px;
+            margin: 10px 0;
+            color: var(--text-secondary);
+        }
+
+        .close-instructions {
+            float: right;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .close-instructions:hover {
+            background: #c82333;
+        }
+
+        /* Theme Selector Styles */
+        .theme-selector {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .theme-selector label {
+            font-size: 0.9em;
+            color: white;
+            font-weight: 500;
+        }
+
+        .theme-selector select {
+            padding: 8px 12px;
+            border: 1px solid rgba(255,255,255,0.5);
+            border-radius: 6px;
+            background: rgba(0,0,0,0.3);
+            color: white;
+            font-size: 0.9em;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+        }
+
+        .theme-selector select:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.8);
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.2);
+        }
+
+        .theme-selector select option {
+            background: #2c3e50;
+            color: white;
+            padding: 8px;
+        }
+
+        /* CSS Variables for Theme System */
+        :root {
+            --bg-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --bg-secondary: white;
+            --bg-tertiary: #f8f9fa;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --text-accent: #2c3e50;
+            --border-color: #dee2e6;
+            --accent-color: #3498db;
+        }
+
+        /* Dark Theme - Improved Colors */
+        [data-theme="dark"] {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #2d2d30;
+            --bg-tertiary: #3e3e42;
+            --text-primary: #ffffff;
+            --text-secondary: #cccccc;
+            --text-accent: #4fc3f7;
+            --border-color: #464647;
+            --accent-color: #0078d4;
+        }
+
+        /* Apply theme variables */
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .section {
+            background: var(--bg-tertiary);
+            border-left-color: var(--accent-color);
+        }
+
+        .section h3 {
+            color: var(--text-accent);
+        }
+
+        .checkbox-item, .radio-item {
+            background: var(--bg-secondary);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .checkbox-item:hover, .radio-item:hover {
+            border-color: var(--accent-color);
+            background: var(--bg-tertiary);
+        }
+
+        .file-output {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        /* Dark theme specific styles */
+        [data-theme="dark"] body {
+            background: var(--bg-primary);
+        }
+
+        [data-theme="dark"] .header {
+            background: var(--bg-secondary);
+        }
+
+        [data-theme="dark"] .theme-selector select {
+            background: var(--bg-tertiary);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] .theme-selector select option {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .button-group {
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .button-section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .button-section h4 {
+            color: var(--text-accent);
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        .launch-note {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .github-btn {
+            border-color: #24292e;
+        }
+
+        .github-btn:hover {
+            background: #24292e;
+            border-color: #24292e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🐳 DevContainer Wizard</h1>
+            <p>Create optimized devcontainers for Web3 development</p>
+            
+            <!-- Theme Selector -->
+            <div class="theme-selector">
+                <label for="theme-select">Theme:</label>
+                <select id="theme-select" onchange="changeTheme(this.value)">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="wizard-content">
+            <form id="wizardForm">
+                <div class="section">
+                    <h3>🛡️ Security Profile</h3>
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" name="security" value="minimal" checked>
+                            <div>
+                                <strong>Minimal</strong>
+                                <div class="description">Basic security, focus on functionality</div>
+                            </div>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="security" value="secure">
+                            <div>
+                                <strong>Secure</strong>
+                                <div class="description">Balanced security with capability dropping</div>
+                            </div>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="security" value="hardened">
+                            <div>
+                                <strong>Hardened</strong>
+                                <div class="description">SELinux, seccomp, AppArmor, no-new-privileges</div>
+                            </div>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="security" value="auditor">
+                            <div>
+                                <strong>Security Auditor</strong>
+                                <div class="description">Read-only with full security toolchain</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>🏗️ Web3 Development Stack</h3>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="tools" value="solidity">
+                            <div>
+                                <strong>Solidity</strong>
+                                <div class="description">Smart contract development with solc-select</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="tools" value="hardhat">
+                            <div>
+                                <strong>Hardhat</strong>
+                                <div class="description">Ethereum development environment</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="tools" value="foundry">
+                            <div>
+                                <strong>Foundry</strong>
+                                <div class="description">Fast Solidity testing framework</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="tools" value="vyper">
+                            <div>
+                                <strong>Vyper</strong>
+                                <div class="description">Pythonic smart contract language</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="tools" value="rust">
+                            <div>
+                                <strong>Rust</strong>
+                                <div class="description">For Solana, Polkadot development</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="tools" value="go">
+                            <div>
+                                <strong>Go</strong>
+                                <div class="description">For blockchain infrastructure</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="tools" value="nodejs">
+                            <div>
+                                <strong>Node.js</strong>
+                                <div class="description">JavaScript/TypeScript development</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="tools" value="python">
+                            <div>
+                                <strong>Python</strong>
+                                <div class="description">Web3.py, data analysis</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>🔍 Security & Analysis Tools</h3>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="security-tools" value="fuzzing">
+                            <div>
+                                <strong>Fuzzing Suite</strong>
+                                <div class="description">Medusa, Echidna, ityfuzz</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="security-tools" value="static-analysis">
+                            <div>
+                                <strong>Static Analysis</strong>
+                                <div class="description">Slither, Slitherin, Semgrep, Aderyn</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="security-tools" value="symbolic-execution">
+                            <div>
+                                <strong>Symbolic Execution</strong>
+                                <div class="description">Mythril, Halmos</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="security-tools" value="decompilers">
+                            <div>
+                                <strong>Decompilers</strong>
+                                <div class="description">Panoramix, Heimdall</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="security-tools" value="forensics">
+                            <div>
+                                <strong>Forensics</strong>
+                                <div class="description">napalm, specialized analysis tools</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>🐚 Shell & Environment</h3>
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" name="shell" value="bash" checked>
+                            <div>
+                                <strong>Bash</strong>
+                                <div class="description">Standard shell</div>
+                            </div>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="shell" value="zsh">
+                            <div>
+                                <strong>Zsh</strong>
+                                <div class="description">Enhanced shell with Oh My Zsh</div>
+                            </div>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="shell" value="fish">
+                            <div>
+                                <strong>Fish</strong>
+                                <div class="description">User-friendly shell</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>📦 Package Managers & Version Control</h3>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="features" value="git">
+                            <div>
+                                <strong>Git</strong>
+                                <div class="description">Version control with GitLens</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="features" value="asdf">
+                            <div>
+                                <strong>asdf</strong>
+                                <div class="description">Universal version manager</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="features" value="nvm">
+                            <div>
+                                <strong>nvm</strong>
+                                <div class="description">Node.js version manager</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="features" value="package-managers">
+                            <div>
+                                <strong>Package Managers</strong>
+                                <div class="description">yarn, pnpm, pipx, cargo, uv</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>🧩 VS Code Extensions</h3>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="extensions" value="solidity-core">
+                            <div>
+                                <strong>Solidity Core</strong>
+                                <div class="description">JuanBlanco.solidity, NomicFoundation.hardhat-solidity</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="extensions" value="security-audit">
+                            <div>
+                                <strong>Security Auditing</strong>
+                                <div class="description">tintinweb.solidity-visual-auditor, trailofbits.weaudit</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="extensions" value="analysis-tools">
+                            <div>
+                                <strong>Analysis Tools</strong>
+                                <div class="description">solidity-metrics, contract-explorer, decompiler</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="extensions" value="vyper-support">
+                            <div>
+                                <strong>Vyper Support</strong>
+                                <div class="description">tintinweb.vscode-vyper, vscode-LLL</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="extensions" value="productivity">
+                            <div>
+                                <strong>Productivity</strong>
+                                <div class="description">GitLens, spell-checker, inline-bookmarks</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="extensions" value="visualization">
+                            <div>
+                                <strong>Visualization</strong>
+                                <div class="description">ethover, solidity-flattener, graphviz-preview</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>⚙️ Additional Features</h3>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="features" value="docker">
+                            <div>
+                                <strong>Docker in Docker</strong>
+                                <div class="description">Build containers inside devcontainer</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="features" value="ports">
+                            <div>
+                                <strong>Common Ports</strong>
+                                <div class="description">Forward typical Web3 dev ports</div>
+                            </div>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="features" value="ipfs">
+                            <div>
+                                <strong>IPFS</strong>
+                                <div class="description">Decentralized storage</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="generate-btn">🚀 Generate DevContainer</button>
+                
+                <div id="validation-results" class="validation-section" style="display: none;">
+                    <h3>⚠️ Configuration Issues</h3>
+                    <div id="validation-messages"></div>
+                </div>
+            </form>
+
+            <div id="output" class="output-section">
+                <h3>📄 Generated Files</h3>
+                <div id="devcontainer-output">
+                    <h4>devcontainer.json</h4>
+                    <pre id="devcontainer-content" class="file-output"></pre>
+                    <div class="button-group">
+                        <button class="download-btn" onclick="downloadFile('devcontainer.json', document.getElementById('devcontainer-content').textContent)">📄 Download devcontainer.json</button>
+                    </div>
+                </div>
+                <div id="dockerfile-output" style="display: none;">
+                    <h4>Dockerfile</h4>
+                    <pre id="dockerfile-content" class="file-output"></pre>
+                    <div class="button-group">
+                        <button class="download-btn" onclick="downloadFile('Dockerfile', document.getElementById('dockerfile-content').textContent)">📄 Download Dockerfile</button>
+                    </div>
+                </div>
+                
+                <div id="launch-options" class="launch-section">
+                    <h3>🚀 Launch Your DevContainer</h3>
+                    
+                    <!-- Generate Files Section -->
+                    <div class="button-section">
+                        <h4>📁 Generate Files</h4>
+                        <div class="launch-buttons">
+                            <button class="launch-btn download-btn" onclick="downloadAllFiles()">
+                                📄 Download Files
+                            </button>
+                            <button class="launch-btn zip-btn" onclick="downloadDevContainerZip()">
+                                📦 Download ZIP
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Launch Instructions Section -->
+                    <div class="button-section">
+                        <h4>🚀 How to Use Your DevContainer</h4>
+                        <p style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 15px;">
+                            Click on each option to see detailed instructions:
+                        </p>
+                        <div class="launch-buttons">
+                            <button class="launch-btn codespaces-btn" onclick="toggleInstructions('codespaces')">
+                                <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub" width="20" height="20">
+                                GitHub Codespaces
+                            </button>
+                            <button class="launch-btn gitpod-btn" onclick="toggleInstructions('gitpod')">
+                                <img src="https://gitpod.io/favicon.ico" alt="Gitpod" width="20" height="20">
+                                Gitpod
+                            </button>
+                            <button class="launch-btn local-btn" onclick="toggleInstructions('local')">
+                                💻 Local Development
+                            </button>
+                            <button class="launch-btn github-btn" onclick="toggleInstructions('github')">
+                                🐙 GitHub Repository
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Pre-configured Containers Section -->
+                    <div class="button-section" style="background: var(--bg-tertiary); border-left: 4px solid #4169e1;">
+                        <h4>⭐ Pre-configured Containers</h4>
+                        <p style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 15px;">
+                            For quick start without custom configuration, you can also use:
+                        </p>
+                        <div class="launch-buttons">
+                            <a href="https://solarspace.dev/" target="_blank" class="launch-btn" style="background: linear-gradient(135deg, #ff6b35, #f7931e); color: white; text-decoration: none;">
+                                🌞 SolarSpace.dev
+                            </a>
+                        </div>
+                        <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 8px;">
+                            SolarSpace offers pre-configured containers for Web3 development with security tools already installed.
+                        </p>
+                    </div>
+                    
+                    <div id="launch-instructions" class="launch-instructions" style="display: none;">
+                        <!-- Instructions will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="wizard.js"></script>
+</body>
+</html>

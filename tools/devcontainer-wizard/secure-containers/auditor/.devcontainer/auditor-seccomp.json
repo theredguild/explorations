@@ -1,0 +1,106 @@
+{
+    "defaultAction": "SCMP_ACT_ERRNO",
+    "archMap": [
+        {
+            "architecture": "SCMP_ARCH_X86_64",
+            "subArchitectures": [
+                "SCMP_ARCH_X86",
+                "SCMP_ARCH_X32"
+            ]
+        }
+    ],
+    "syscalls": [
+        {
+            "names": [
+                "access",
+                "arch_prctl",
+                "brk",
+                "chdir",
+                "clock_gettime",
+                "close",
+                "dup",
+                "dup2",
+                "execve",
+                "exit",
+                "exit_group",
+                "fadvise64",
+                "fcntl",
+                "fstat",
+                "fstatfs",
+                "futex",
+                "getdents64",
+                "getegid",
+                "geteuid",
+                "getgid",
+                "getpid",
+                "getppid",
+                "getrandom",
+                "getrlimit",
+                "getuid",
+                "ioctl",
+                "lseek",
+                "lstat",
+                "madvise",
+                "mmap",
+                "mprotect",
+                "mremap",
+                "munmap",
+                "nanosleep",
+                "newfstatat",
+                "open",
+                "openat",
+                "pipe",
+                "pipe2",
+                "poll",
+                "pread64",
+                "read",
+                "readlink",
+                "readlinkat",
+                "rt_sigaction",
+                "rt_sigprocmask",
+                "rt_sigreturn",
+                "select",
+                "set_robust_list",
+                "set_tid_address",
+                "stat",
+                "statfs",
+                "uname",
+                "wait4",
+                "write"
+            ],
+            "action": "SCMP_ACT_ALLOW"
+        },
+        {
+            "names": [
+                "connect",
+                "socket",
+                "bind",
+                "listen",
+                "accept",
+                "sendto",
+                "recvfrom",
+                "sendmsg",
+                "recvmsg"
+            ],
+            "action": "SCMP_ACT_ERRNO",
+            "comment": "Block all network operations for air-gapped analysis"
+        },
+        {
+            "names": [
+                "chmod",
+                "fchmod",
+                "fchmodat",
+                "chown",
+                "fchown",
+                "fchownat",
+                "unlink",
+                "unlinkat",
+                "rename",
+                "renameat",
+                "rmdir"
+            ],
+            "action": "SCMP_ACT_ERRNO",
+            "comment": "Block file modification operations - read-only analysis only"
+        }
+    ]
+}

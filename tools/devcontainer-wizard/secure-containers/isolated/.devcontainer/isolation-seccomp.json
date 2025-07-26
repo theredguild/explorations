@@ -1,0 +1,126 @@
+{
+    "defaultAction": "SCMP_ACT_KILL",
+    "archMap": [
+        {
+            "architecture": "SCMP_ARCH_X86_64",
+            "subArchitectures": [
+                "SCMP_ARCH_X86",
+                "SCMP_ARCH_X32"
+            ]
+        }
+    ],
+    "syscalls": [
+        {
+            "names": [
+                "access",
+                "arch_prctl",
+                "brk",
+                "close",
+                "exit",
+                "exit_group",
+                "fstat",
+                "futex",
+                "getegid",
+                "geteuid",
+                "getgid",
+                "getpid",
+                "getppid",
+                "getuid",
+                "lseek",
+                "lstat",
+                "mmap",
+                "mprotect",
+                "munmap",
+                "newfstatat",
+                "open",
+                "openat",
+                "read",
+                "rt_sigaction",
+                "rt_sigprocmask",
+                "rt_sigreturn",
+                "set_robust_list",
+                "set_tid_address",
+                "stat",
+                "uname",
+                "write"
+            ],
+            "action": "SCMP_ACT_ALLOW",
+            "comment": "Minimal syscalls for basic operation"
+        },
+        {
+            "names": [
+                "clock_gettime",
+                "gettimeofday"
+            ],
+            "action": "SCMP_ACT_ALLOW",
+            "comment": "Time-related syscalls for basic functionality"
+        },
+        {
+            "names": [
+                "execve"
+            ],
+            "action": "SCMP_ACT_ERRNO",
+            "comment": "Block process execution"
+        },
+        {
+            "names": [
+                "connect",
+                "socket",
+                "bind",
+                "listen",
+                "accept",
+                "sendto",
+                "recvfrom",
+                "sendmsg",
+                "recvmsg",
+                "socketpair"
+            ],
+            "action": "SCMP_ACT_KILL",
+            "comment": "Kill any network operations"
+        },
+        {
+            "names": [
+                "chmod",
+                "fchmod",
+                "fchmodat",
+                "chown",
+                "fchown",
+                "fchownat",
+                "unlink",
+                "unlinkat",
+                "rename",
+                "renameat",
+                "rmdir",
+                "mkdir",
+                "mkdirat"
+            ],
+            "action": "SCMP_ACT_KILL",
+            "comment": "Kill any file modification operations"
+        },
+        {
+            "names": [
+                "fork",
+                "vfork",
+                "clone"
+            ],
+            "action": "SCMP_ACT_KILL",
+            "comment": "Kill process creation"
+        },
+        {
+            "names": [
+                "ptrace"
+            ],
+            "action": "SCMP_ACT_KILL",
+            "comment": "Kill debugging operations"
+        },
+        {
+            "names": [
+                "mount",
+                "umount",
+                "umount2"
+            ],
+            "action": "SCMP_ACT_KILL",
+            "comment": "Kill filesystem mounting"
+        }
+    ]
+}
