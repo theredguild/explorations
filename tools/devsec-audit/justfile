@@ -153,14 +153,8 @@ benchmark:
 
 # Check dependencies for security vulnerabilities
 audit-deps:
-    uv pip list --format=json | uv run python -c "
-import json, sys, requests
-data = json.load(sys.stdin)
-packages = [p['name'] + '==' + p['version'] for p in data]
-print('📦 Checking', len(packages), 'packages for vulnerabilities...')
-# Note: This is a placeholder - you could integrate with safety or similar tools
-print('✅ Dependency audit complete')
-"
+    @echo "📦 Checking packages for vulnerabilities..."
+    @echo "✅ Dependency audit complete (placeholder)"
 
 # Generate project documentation
 docs:
