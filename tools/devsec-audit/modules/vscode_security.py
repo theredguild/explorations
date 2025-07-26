@@ -29,13 +29,14 @@ class VSCodeSecurityModule(BaseSecurityModule):
         
         failed_checks = len(self.findings)
         score = self._calculate_module_score(total_checks, failed_checks)
+        passed_checks = max(0, total_checks - failed_checks)
         
         return ScanResult(
             module_name=self.module_name,
             findings=self.findings,
             score=score,
             total_checks=total_checks,
-            passed_checks=total_checks - failed_checks,
+            passed_checks=passed_checks,
             failed_checks=failed_checks
         )
     
@@ -226,17 +227,21 @@ class VSCodeSecurityModule(BaseSecurityModule):
         task_label = task.get("label", "Unknown Task")
         command = task.get("command", "")
         args = task.get("args", [])
+        task_type = task.get("type", "")
         
+        # Enhanced dangerous command patterns
         dangerous_commands = [
             "curl", "wget", "powershell", "cmd", "bash", "sh", 
-            "python", "node", "eval", "exec"
+            "python", "node", "eval", "exec", "nc", "netcat",
+            "rm", "del", "rmdir", "sudo", "su"
         ]
         
         full_command = f"{command} {' '.join(args)}" if args else command
         
+        # Check for dangerous commands
         for dangerous_cmd in dangerous_commands:
             if dangerous_cmd in command.lower() or any(dangerous_cmd in str(arg).lower() for arg in args):
-                severity = Severity.HIGH if dangerous_cmd in ["curl", "wget", "eval", "exec"] else Severity.MEDIUM
+                severity = Severity.CRITICAL if dangerous_cmd in ["curl", "wget", "eval", "exec", "rm", "del", "sudo"] else Severity.HIGH
                 
                 self.add_finding(Finding(
                     id="VSCODE-008",
@@ -249,16 +254,75 @@ class VSCodeSecurityModule(BaseSecurityModule):
                     recommendation="Review task commands for security implications"
                 ))
         
-        if task.get("runOptions", {}).get("runOn") == "folderOpen":
-            self.add_finding(Finding(
-                id="VSCODE-009",
-                title="Auto-Run Task on Folder Open",
-                description=f"Task '{task_label}' is configured to run automatically when folder opens",
-                severity=Severity.HIGH,
-                category="vscode",
-                file_path=str(tasks_file),
-                recommendation="Avoid auto-running tasks on folder open"
-            ))
+        # Check for various auto-execution patterns
+        auto_run_patterns = [
+            ("runOptions", "runOn", "folderOpen", "Task runs automatically on folder open"),
+            ("runOptions", "runOn", "default", "Task runs automatically by default"),
+            ("presentation", "reveal", "always", "Task always reveals terminal (potential distraction)"),
+            ("isBackground", True, None, "Background task that continues running"),
+        ]
+        
+        for pattern in auto_run_patterns:
+            if len(pattern) == 4:
+                section, key, value, description = pattern
+                if task.get(section, {}).get(key) == value:
+                    severity = Severity.CRITICAL if "folderOpen" in description else Severity.HIGH
+                    self.add_finding(Finding(
+                        id="VSCODE-009",
+                        title="Auto-Execution Task Configuration",
+                        description=f"Task '{task_label}': {description}",
+                        severity=severity,
+                        category="vscode",
+                        file_path=str(tasks_file),
+                        evidence=f"{section}.{key} = {value}",
+                        recommendation="Disable automatic task execution for security"
+                    ))
+        
+        # Check for shell command injection patterns
+        injection_patterns = [
+            r'\|\|',  # Command chaining
+            r'&&',    # Command chaining
+            r';',     # Command separator
+            r'\$\(',  # Command substitution
+            r'`.*`',  # Backtick execution
+            r'>\s*/dev/null',  # Output redirection (hiding output)
+            r'2>&1',  # Error redirection
+        ]
+        
+        for pattern in injection_patterns:
+            if re.search(pattern, full_command):
+                self.add_finding(Finding(
+                    id="VSCODE-010",
+                    title="Command Injection Pattern in VS Code Task",
+                    description=f"Task '{task_label}' contains shell injection pattern",
+                    severity=Severity.HIGH,
+                    category="vscode",
+                    file_path=str(tasks_file),
+                    evidence=full_command[:100],
+                    recommendation="Avoid shell metacharacters in task commands"
+                ))
+                break
+        
+        # Check for network access patterns (like in NOTES.md example)
+        network_patterns = [
+            r'https?://[^\s]+',  # HTTP/HTTPS URLs
+            r'ftp://[^\s]+',     # FTP URLs
+            r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b',  # IP addresses
+        ]
+        
+        for pattern in network_patterns:
+            if re.search(pattern, full_command):
+                self.add_finding(Finding(
+                    id="VSCODE-011",
+                    title="Network Access in VS Code Task",
+                    description=f"Task '{task_label}' accesses network resources",
+                    severity=Severity.MEDIUM,
+                    category="vscode",
+                    file_path=str(tasks_file),
+                    evidence=full_command[:100],
+                    recommendation="Review network access in tasks - ensure destinations are trusted"
+                ))
+                break
     
     def _check_vscode_launch(self) -> int:
         launch_file = self.target_path / ".vscode" / "launch.json"

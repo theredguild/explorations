@@ -161,7 +161,7 @@ class SecurityReporter:
         lines.extend([
             f"{Fore.WHITE}{Style.BRIGHT}Module: {result.module_name.upper()}",
             f"  Score: {score_color}{result.score}/100 {status_icon}",
-            f"  Checks: {result.total_checks} total, {Fore.GREEN}{result.passed_checks} passed{Style.RESET_ALL}, {Fore.RED}{result.failed_checks} failed{Style.RESET_ALL}",
+            f"  Checks: {Fore.GREEN}{result.passed_checks}/{result.total_checks} passed{Style.RESET_ALL}",
             f"  Findings: {len(result.findings)}",
             "",
         ])
@@ -318,7 +318,7 @@ class SecurityReporter:
                     {{ result.score }}/100
                 </div>
             </div>
-            <p>Checks: {{ result.total_checks }} total, {{ result.passed_checks }} passed, {{ result.failed_checks }} failed</p>
+            <p>Checks: {{ result.passed_checks }}/{{ result.total_checks }} passed</p>
             
             {% for finding in result.findings %}
             <div class="finding {{ finding.severity.value }}">

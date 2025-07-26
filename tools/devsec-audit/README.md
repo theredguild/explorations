@@ -26,11 +26,17 @@ A comprehensive security auditor for development environments, inspired by Lynis
 - Workspace trust assessment
 
 ### 🔐 **Secrets Scanner Module**
-- Hardcoded API keys and tokens
-- Database credentials detection
-- Private key exposure
-- Environment file analysis
-- Command history scanning
+- Exposed sensitive files detection
+- Environment files and configuration analysis
+- Private key and certificate exposure
+- .gitignore coverage validation
+- Lockfile tampering detection
+
+### ⚒️ **Foundry Security Module**
+- FFI (Foreign Function Interface) usage detection
+- Dangerous filesystem permissions
+- Test file security analysis
+- Foundry.toml configuration validation
 
 ## Installation
 
@@ -104,22 +110,27 @@ uv run python -m core.cli --quick
 ### Output Formats
 ```bash
 # Generate HTML report
-./devsec-audit --format html --output security-report.html
+just run --format html --output security-report.html
+uv run python -m core.cli --format html --output security-report.html
 
-# Generate JSON report
-./devsec-audit --format json --output security-report.json
+# Generate JSON report  
+just run --format json --output security-report.json
+uv run python -m core.cli --format json --output security-report.json
 
 # Text output to file
-./devsec-audit --format text --output security-report.txt
+just run --format text --output security-report.txt
+uv run python -m core.cli --format text --output security-report.txt
 ```
 
 ### Severity Filtering
 ```bash
 # Show only critical and high severity issues
-./devsec-audit --severity high
+just run --severity high
+uv run python -m core.cli --severity high
 
 # Show only critical issues
-./devsec-audit --severity critical
+just run --severity critical
+uv run python -m core.cli --severity critical
 ```
 
 ## Command Reference
@@ -143,28 +154,46 @@ devsec-audit [OPTIONS]
 ### Information Commands
 ```bash
 # Show target information
-devsec-audit info --target /path/to/project
+just info --target /path/to/project
+uv run python -m core.cli info --target /path/to/project
 
 # List available modules
-devsec-audit modules
+uv run python -m core.cli modules
 ```
 
 ## Configuration
 
-Create a `devsec-config.yaml` file to customize scanning behavior:
+Create a `config.yaml` file to customize scanning behavior:
 
 ```yaml
-modules: ["git", "docker", "vscode", "secrets"]
+modules: ["git", "docker", "vscode", "secrets", "foundry"]
 severity_filter: ["critical", "high", "medium", "low", "info"]
+
+# Exclude paths to reduce false positives
+exclude_paths:
+  - "**/node_modules/**"
+  - "**/vendor/**"
+  - "**/openzeppelin-contracts/**"
+  - "**/build/**"
+  - "**/dist/**"
+
+# Exclude specific files
+exclude_files:
+  - "*.test.json"
+  - "*.fixture.json"
+
+# Whitelist specific findings
 whitelist:
   - id: "GIT-001"
     reason: "False positive in our environment"
+
+# Module scoring weights
 scoring:
   git: 20
-  docker: 25
+  docker: 20
   vscode: 15
   secrets: 25
-  filesystem: 15
+  foundry: 20
 ```
 
 ## Scoring System
@@ -172,10 +201,10 @@ scoring:
 DevSec Audit provides an overall security score (0-100) based on:
 
 - **Git Security (20%)**: Configuration and repository security
-- **Docker Security (25%)**: Container and image security  
+- **Docker Security (20%)**: Container and image security  
 - **VS Code Security (15%)**: Editor and workspace security
-- **Secrets Security (25%)**: Credential and key management
-- **File System Security (15%)**: Permissions and file security
+- **Secrets Security (25%)**: Credential and exposed file management
+- **Foundry Security (20%)**: Smart contract development security
 
 ### Score Interpretation
 - **85-100**: Excellent security posture ✅
@@ -211,33 +240,42 @@ DevSec Audit provides an overall security score (0-100) based on:
 - Workspace trust settings
 
 ### Secrets Scanner Checks
-- AWS access keys and secrets
-- GitHub tokens (classic and fine-grained)
-- API keys (Slack, Discord, Google, etc.)
-- JWT tokens
-- Private keys (RSA, SSH, etc.)
-- Database connection strings
-- Environment variable security
+- Exposed environment files (.env, .env.*)
+- Private keys and certificates (.pem, .key, id_rsa)
+- Configuration files with potential secrets
+- Database files not in .gitignore
+- Cloud provider credential files
+- .gitignore coverage validation
+- Lockfile tampering detection (NPM, Yarn, etc.)
+
+### Foundry Security Checks
+- FFI (Foreign Function Interface) enabled in foundry.toml
+- FFI usage in Solidity test files
+- Dangerous commands in FFI calls
+- Filesystem permissions configuration
+- Test file security patterns
 
 ## Examples
 
 ### Comprehensive Security Audit
 ```bash
 # Full scan with HTML report
-./devsec-audit --target ./my-project --format html --output audit-report.html --verbose
+just run --target ./my-project --format html --output audit-report.html --verbose
+uv run python -m core.cli --target ./my-project --format html --output audit-report.html --verbose
 ```
 
 ### CI/CD Integration
 ```bash
 # Exit with error code on critical/high issues
-./devsec-audit --severity high --format json --output security-findings.json
+just run --severity high --format json --output security-findings.json
 echo $?  # 0=success, 1=high issues, 2=critical issues
 ```
 
 ### Quick Development Check
 ```bash
 # Fast scan for immediate feedback
-./devsec-audit --quick --severity high --no-color
+just run --quick --severity high --no-color
+uv run python -m core.cli --quick --severity high --no-color
 ```
 
 ## Integration
@@ -251,22 +289,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
       - name: Run DevSec Audit
         run: |
-          pip install devsec-audit
-          devsec-audit --format json --output security-report.json
+          cd tools/devsec-audit
+          uv run python -m core.cli --format json --output security-report.json
       - name: Upload Security Report
         uses: actions/upload-artifact@v3
         with:
           name: security-report
-          path: security-report.json
+          path: tools/devsec-audit/security-report.json
 ```
 
 ### Pre-commit Hook
 ```bash
 #!/bin/sh
 # .git/hooks/pre-commit
-./devsec-audit --quick --severity high --no-color
+cd tools/devsec-audit
+uv run python -m core.cli --quick --severity high --no-color
 exit $?
 ```
 

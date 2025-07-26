@@ -38,8 +38,8 @@ scan:
     uv run python -m core.cli --quick --verbose
 
 # Run with specific target
-scan-target TARGET:
-    uv run python -m core.cli --target {{TARGET}} --verbose
+scan-target TARGET *ARGS:
+    uv run python -m core.cli --target {{TARGET}} --verbose {{ARGS}}
 
 # Generate HTML report
 report TARGET="." OUTPUT="security-report.html":

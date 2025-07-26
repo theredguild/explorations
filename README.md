@@ -1,5 +1,167 @@
 # Public explorations repository
-This repository is a place to share smaller discoveries, experiments, and code snippets that might otherwise remain hidden. While nothing here is fully tested or explored, we’d rather present these glimpses than keep them tucked away. Perhaps someone else will find them useful or build upon them.
+This repository is a place to share smaller discoveries, experiments, and code snippets that might otherwise remain hidden. While nothing here is fully tested or explored, we'd rather present these glimpses than keep them tucked away. Perhaps someone else will find them useful or build upon them.
+
+## DevSec Audit: Security Scanner for Development Environments
+A comprehensive security auditing tool inspired by Lynis, specifically designed for development environments. DevSec Audit scans projects for security misconfigurations, dangerous settings, exposed secrets, and potential attack vectors across multiple technologies.
+
+### Features
+- **Git Security**: Scans Git configurations, hooks, aliases, SSH keys, and detects dangerous settings
+- **Docker Security**: Analyzes Dockerfiles, docker-compose files, and DevContainer configurations for security issues
+- **VS Code Security**: Reviews VS Code settings, extensions, tasks, and workspace configurations for vulnerabilities
+- **Secrets Detection**: Identifies exposed sensitive files and checks if they're properly excluded from version control
+- **Foundry Security**: Detects FFI usage and dangerous configurations in Foundry/Forge projects
+- **Lockfile Analysis**: Checks package lock files for signs of tampering and typosquatting attacks
+
+### Quick Start
+```bash
+# Navigate to the tool directory
+cd tools/devsec-audit
+
+# Run a quick scan of current directory
+just run --target . --quick
+
+# Scan specific modules
+just run --target /path/to/project --modules git,docker,secrets
+
+# Generate HTML report
+just run --target . --format html --output security-report.html
+```
+
+### Usage Examples
+
+#### Basic Security Scan
+```bash
+# Scan current directory with all modules
+just run --target .
+
+# Quick scan (essential checks only)
+just run --target . --quick
+
+# Scan with specific severity level
+just run --target . --severity high
+```
+
+#### Module-Specific Scans
+```bash
+# Git security only
+just run --target . --modules git
+
+# Multiple modules
+just run --target . --modules git,docker,vscode
+
+# Check what can be scanned in a directory
+just info --target /path/to/project
+```
+
+#### Report Generation
+```bash
+# HTML report
+just run --target . --format html --output report.html
+
+# JSON report for automation
+just run --target . --format json --output results.json
+
+# Text report to file
+just run --target . --format text --output scan-results.txt
+```
+
+### Configuration
+Create a `config.yaml` file to customize scanning behavior:
+
+```yaml
+# Modules to scan
+modules:
+  - git
+  - docker
+  - vscode
+  - secrets
+  - foundry
+
+# Severity levels to report
+severity_filter:
+  - critical
+  - high
+  - medium
+
+# Exclude paths (reduce false positives)
+exclude_paths:
+  - "**/node_modules/**"
+  - "**/vendor/**"
+  - "**/openzeppelin-contracts/**"
+
+# Exclude specific files
+exclude_files:
+  - "*.test.json"
+  - "*.fixture.json"
+```
+
+### Security Checks Performed
+
+#### Git Security Module
+- Dangerous Git aliases and hooks
+- Credential helpers and SSH key permissions
+- Git configuration vulnerabilities
+- Submodule security issues
+- Commit identity spoofing detection
+
+#### Docker Security Module
+- Dockerfile best practices
+- Privileged containers and dangerous capabilities
+- Insecure volume mounts
+- DevContainer security configurations
+- Missing .dockerignore files
+
+#### VS Code Security Module
+- Dangerous settings and auto-execution
+- Suspicious extension recommendations
+- Terminal and Python interpreter configurations
+- Task security and command injection patterns
+- Workspace trust settings
+
+#### Secrets Scanner Module
+- Exposed environment files and configuration files
+- Private keys and certificates
+- Database files and credentials
+- Missing or incomplete .gitignore patterns
+- Cloud provider credential files
+
+#### Foundry Security Module
+- FFI (Foreign Function Interface) usage in tests
+- Dangerous filesystem permissions
+- Foundry.toml security configurations
+- Command execution in test files
+
+### Installation Requirements
+```bash
+# Using uv (recommended)
+uv sync
+
+# Or using pip
+pip install -r requirements.txt
+```
+
+### Understanding Results
+The tool provides a security score (0-100) and categorizes findings by severity:
+- 🔴 **Critical**: Immediate security risks requiring urgent action
+- 🟠 **High**: Significant security issues that should be addressed soon
+- 🟡 **Medium**: Moderate security concerns worth reviewing
+- 🟢 **Low**: Minor issues or hardening opportunities
+- 🔵 **Info**: Informational findings for awareness
+
+### Integration with CI/CD
+DevSec Audit returns appropriate exit codes for automation:
+- `0`: Success (no critical/high issues)
+- `1`: High severity issues found
+- `2`: Critical security issues found
+
+Example GitHub Actions integration:
+```yaml
+- name: Security Audit
+  run: |
+    cd tools/devsec-audit
+    just run --target . --format json --output security-results.json
+    # Upload results as artifact or fail build on critical issues
+```
 
 
 ## VSExInspector.py: VSCode Extension Marketplace Inspector

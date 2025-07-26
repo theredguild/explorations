@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-Secrets Scanner Module
-Scans for hardcoded secrets, API keys, passwords, and other sensitive information
-in source code, configuration files, and environment files
+Exposed Files Scanner Module
+Scans for sensitive files that should not be exposed (env files, config files, etc.)
+and checks if they're properly excluded from version control
 """
 
 import re
 import os
+import fnmatch
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Pattern
+from typing import List, Dict, Any, Optional, Set
 from core.scanner import BaseSecurityModule, Finding, Severity, ScanResult
 
 
@@ -16,360 +17,324 @@ class SecretsScanner(BaseSecurityModule):
     def __init__(self, target_path: Path, config: Dict[str, Any]):
         super().__init__(target_path, config)
         self.module_name = "secrets"
-        self.secret_patterns = self._load_secret_patterns()
-        self.ignore_patterns = self._load_ignore_patterns()
+        self.gitignore_patterns = self._load_gitignore_patterns()
         
     def scan(self) -> ScanResult:
         self.findings = []
         total_checks = 0
         
-        total_checks += self._scan_files_for_secrets()
-        total_checks += self._check_environment_files()
-        total_checks += self._check_config_files()
-        total_checks += self._check_history_files()
+        total_checks += self._check_exposed_sensitive_files()
+        total_checks += self._check_gitignore_coverage()
+        total_checks += self._check_lockfiles()
         
         failed_checks = len(self.findings)
         score = self._calculate_module_score(total_checks, failed_checks)
+        passed_checks = max(0, total_checks - failed_checks)
         
         return ScanResult(
             module_name=self.module_name,
             findings=self.findings,
             score=score,
             total_checks=total_checks,
-            passed_checks=total_checks - failed_checks,
+            passed_checks=passed_checks,  
             failed_checks=failed_checks
         )
     
-    def _load_secret_patterns(self) -> Dict[str, Dict]:
-        return {
-            "aws_access_key": {
-                "pattern": r"AKIA[0-9A-Z]{16}",
-                "description": "AWS Access Key ID",
-                "severity": Severity.CRITICAL
-            },
-            "aws_secret_key": {
-                "pattern": r"[A-Za-z0-9/\+=]{40}",
-                "description": "AWS Secret Access Key",
-                "severity": Severity.CRITICAL,
-                "context": r"(aws_secret_access_key|secret.?key)"
-            },
-            "github_token": {
-                "pattern": r"gh[pousr]_[A-Za-z0-9_]{36}",
-                "description": "GitHub Token",
-                "severity": Severity.HIGH
-            },
-            "github_classic_token": {
-                "pattern": r"[0-9a-f]{32}",
-                "description": "GitHub Classic Token",
-                "severity": Severity.HIGH,
-                "context": r"(github|gh).?(token|pat)"
-            },
-            "slack_token": {
-                "pattern": r"xox[baprs]-([0-9a-zA-Z]{10,48})",
-                "description": "Slack Token",
-                "severity": Severity.HIGH
-            },
-            "discord_token": {
-                "pattern": r"[MN][A-Za-z\d]{23}\.[\w-]{6}\.[\w-]{27}",
-                "description": "Discord Bot Token",
-                "severity": Severity.HIGH
-            },
-            "jwt_token": {
-                "pattern": r"eyJ[A-Za-z0-9_/+=\-]+\.eyJ[A-Za-z0-9_/+=\-]+\.[A-Za-z0-9_/+=\-]+",
-                "description": "JWT Token",
-                "severity": Severity.MEDIUM
-            },
-            "api_key_generic": {
-                "pattern": r"[A-Za-z0-9]{32,}",
-                "description": "Generic API Key",
-                "severity": Severity.MEDIUM,
-                "context": r"(api[_-]?key|apikey|key)"
-            },
-            "private_key": {
-                "pattern": r"-----BEGIN[\s\w]*PRIVATE KEY-----",
-                "description": "Private Key",
-                "severity": Severity.CRITICAL
-            },
-            "password_assignment": {
-                "pattern": r'password\s*[:=]\s*["\']?[^"\'\s\n]{6,}["\']?',
-                "description": "Password Assignment",
-                "severity": Severity.HIGH
-            },
-            "database_url": {
-                "pattern": r"(mysql|postgresql|mongodb)://[^:\s]+:[^@\s]+@[^/\s]+",
-                "description": "Database Connection String with Credentials",
-                "severity": Severity.HIGH
-            },
-            "stripe_key": {
-                "pattern": r"sk_live_[0-9a-zA-Z]{24}",
-                "description": "Stripe Live Secret Key",
-                "severity": Severity.CRITICAL
-            },
-            "mailgun_key": {
-                "pattern": r"key-[0-9a-zA-Z]{32}",
-                "description": "Mailgun API Key",
-                "severity": Severity.MEDIUM
-            },
-            "twilio_sid": {
-                "pattern": r"AC[0-9a-fA-F]{32}",
-                "description": "Twilio Account SID",
-                "severity": Severity.MEDIUM
-            },
-            "google_api_key": {
-                "pattern": r"AIza[0-9A-Za-z\-_]{35}",
-                "description": "Google API Key",
-                "severity": Severity.HIGH
-            }
-        }
-    
-    def _load_ignore_patterns(self) -> List[Pattern]:
-        ignore_regexes = [
-            r"\.git/",
-            r"node_modules/",
-            r"__pycache__/",
-            r"\.pyc$",
-            r"\.jpg$|\.jpeg$|\.png$|\.gif$|\.svg$",
-            r"\.pdf$|\.doc$|\.docx$",
-            r"\.zip$|\.tar$|\.gz$",
-            r"example",
-            r"test.*key",
-            r"dummy.*key",
-            r"fake.*key",
-            r"sample.*key"
+    def _load_gitignore_patterns(self) -> Set[str]:
+        """Load patterns from .gitignore files"""
+        patterns = set()
+        
+        gitignore_locations = [
+            self.target_path / ".gitignore",
+            self.target_path / ".git" / "info" / "exclude"
         ]
-        return [re.compile(pattern, re.IGNORECASE) for pattern in ignore_regexes]
+        
+        for gitignore_path in gitignore_locations:
+            if gitignore_path.exists():
+                try:
+                    content = gitignore_path.read_text()
+                    for line in content.split('\n'):
+                        line = line.strip()
+                        if line and not line.startswith('#'):
+                            patterns.add(line)
+                except Exception:
+                    pass
+        
+        return patterns
     
-    def _should_ignore_file(self, file_path: Path) -> bool:
-        file_str = str(file_path)
-        return any(pattern.search(file_str) for pattern in self.ignore_patterns)
+    def _is_ignored_by_git(self, file_path: Path) -> bool:
+        """Check if a file would be ignored by git"""
+        relative_path = str(file_path.relative_to(self.target_path))
+        
+        for pattern in self.gitignore_patterns:
+            # Handle negation patterns
+            if pattern.startswith('!'):
+                continue
+                
+            # Convert gitignore pattern to fnmatch pattern
+            if pattern.endswith('/'):
+                # Directory pattern
+                if fnmatch.fnmatch(relative_path + '/', pattern) or fnmatch.fnmatch(relative_path, pattern[:-1]):
+                    return True
+            else:
+                # File pattern
+                if fnmatch.fnmatch(relative_path, pattern) or fnmatch.fnmatch(file_path.name, pattern):
+                    return True
+                # Also check if any parent directory matches
+                parts = relative_path.split('/')
+                for i in range(len(parts)):
+                    partial_path = '/'.join(parts[:i+1])
+                    if fnmatch.fnmatch(partial_path, pattern):
+                        return True
+        
+        return False
     
-    def _scan_files_for_secrets(self) -> int:
+    def _check_exposed_sensitive_files(self) -> int:
+        """Check for sensitive files that are exposed in the repository"""
         checks = 0
-        text_extensions = {
-            '.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.go', '.rs', '.rb', 
-            '.php', '.cpp', '.c', '.h', '.cs', '.swift', '.kt', '.scala',
-            '.json', '.yaml', '.yml', '.xml', '.ini', '.cfg', '.conf',
-            '.env', '.txt', '.md', '.sh', '.bash', '.zsh', '.fish',
-            '.sql', '.dockerfile', '.gitconfig', '.gitignore'
+        
+        # Define sensitive file patterns
+        sensitive_patterns = {
+            # Environment files
+            ".env": ("Environment file", Severity.CRITICAL),
+            ".env.*": ("Environment file variant", Severity.CRITICAL),
+            "*.env": ("Environment file", Severity.CRITICAL),
+            
+            # Configuration files with potential secrets
+            "config.json": ("Configuration file", Severity.HIGH),
+            "config.yaml": ("Configuration file", Severity.HIGH),
+            "config.yml": ("Configuration file", Severity.HIGH),
+            "secrets.json": ("Secrets file", Severity.CRITICAL),
+            "secrets.yaml": ("Secrets file", Severity.CRITICAL),
+            "credentials.json": ("Credentials file", Severity.CRITICAL),
+            
+            # Database files
+            "*.db": ("Database file", Severity.HIGH),
+            "*.sqlite": ("SQLite database", Severity.HIGH),
+            "*.sqlite3": ("SQLite database", Severity.HIGH),
+            
+            # Key files
+            "*.pem": ("Private key file", Severity.CRITICAL),
+            "*.key": ("Key file", Severity.CRITICAL), 
+            "*.p12": ("Certificate file", Severity.HIGH),
+            "*.pfx": ("Certificate file", Severity.HIGH),
+            "id_rsa": ("SSH private key", Severity.CRITICAL),
+            "id_dsa": ("SSH private key", Severity.CRITICAL),
+            "id_ed25519": ("SSH private key", Severity.CRITICAL),
+            
+            # Cloud provider files
+            ".aws/credentials": ("AWS credentials", Severity.CRITICAL),
+            ".azure/credentials": ("Azure credentials", Severity.CRITICAL),
+            "gcloud/credentials.json": ("Google Cloud credentials", Severity.CRITICAL),
+            
+            # IDE and editor files with potential secrets
+            ".vscode/settings.json": ("VS Code settings", Severity.MEDIUM),
+            "*.swp": ("Vim swap file", Severity.LOW),
+            "*.swo": ("Vim swap file", Severity.LOW),
+            "*~": ("Backup file", Severity.LOW),
+            
+            # Logs that might contain secrets
+            "*.log": ("Log file", Severity.MEDIUM),
+            "nohup.out": ("Process output file", Severity.MEDIUM),
+            
+            # Backup files
+            "*.bak": ("Backup file", Severity.MEDIUM),
+            "*.backup": ("Backup file", Severity.MEDIUM),
+            "*.orig": ("Original file backup", Severity.LOW),
+            
+            # Docker-related files
+            ".dockercfg": ("Docker config", Severity.HIGH),
+            ".docker/config.json": ("Docker config", Severity.HIGH),
+            
+            # Other sensitive files
+            ".htpasswd": ("HTTP password file", Severity.HIGH),
+            ".netrc": ("Network credentials", Severity.HIGH),
+            "Thumbs.db": ("Windows thumbnail cache", Severity.LOW),
+            ".DS_Store": ("macOS metadata", Severity.LOW),
         }
         
-        for file_path in self.target_path.rglob("*"):
-            if file_path.is_file() and not self._should_ignore_file(file_path):
-                if file_path.suffix.lower() in text_extensions or file_path.name.startswith('.'):
-                    checks += 1
-                    self._scan_file_content(file_path)
-                    
-        return checks
-    
-    def _scan_file_content(self, file_path: Path):
-        try:
-            # Try to read as text, skip binary files
-            content = file_path.read_text(encoding='utf-8', errors='ignore')
-            lines = content.split('\n')
+        # Scan for sensitive files and deduplicate
+        found_files = {}  # path -> (description, severity)
+        
+        for pattern, (description, severity) in sensitive_patterns.items():
+            matching_files = list(self.target_path.glob(f"**/{pattern}"))
+            for file_path in matching_files:
+                # Only keep the highest severity finding for each file
+                if file_path not in found_files or severity.value == "critical":
+                    found_files[file_path] = (description, severity)
+        
+        # Process each unique file once
+        for file_path, (description, severity) in found_files.items():
+            checks += 1
             
-            for line_num, line in enumerate(lines, 1):
-                self._check_line_for_secrets(line, file_path, line_num)
-                
-        except Exception:
-            # Skip files that can't be read
-            pass
-    
-    def _check_line_for_secrets(self, line: str, file_path: Path, line_num: int):
-        for secret_id, secret_info in self.secret_patterns.items():
-            pattern = secret_info["pattern"]
-            
-            # Check if context is required
-            if "context" in secret_info:
-                context_pattern = secret_info["context"]
-                if not re.search(context_pattern, line, re.IGNORECASE):
-                    continue
-            
-            matches = re.finditer(pattern, line, re.IGNORECASE)
-            for match in matches:
-                matched_text = match.group(0)
-                
-                # Additional validation for certain patterns
-                if self._is_likely_secret(secret_id, matched_text, line):
-                    self.add_finding(Finding(
-                        id=f"SECRET-{secret_id.upper()}",
-                        title=f"Hardcoded {secret_info['description']}",
-                        description=f"Found {secret_info['description']} in source code",
-                        severity=secret_info["severity"],
-                        category="secrets",
-                        file_path=str(file_path),
-                        line_number=line_num,
-                        evidence=self._redact_secret(line),
-                        recommendation="Remove hardcoded secrets and use environment variables or secret management systems"
-                    ))
-    
-    def _is_likely_secret(self, secret_id: str, matched_text: str, line: str) -> bool:
-        # Additional validation to reduce false positives
-        
-        # Check for obvious false positives
-        false_positive_indicators = [
-            "example", "test", "dummy", "fake", "sample", "placeholder",
-            "your_key_here", "insert_key", "replace_with", "todo",
-            "xxxxxxx", "000000", "111111", "123456"
-        ]
-        
-        line_lower = line.lower()
-        matched_lower = matched_text.lower()
-        
-        if any(fp in line_lower or fp in matched_lower for fp in false_positive_indicators):
-            return False
-        
-        # Special validation for generic patterns
-        if secret_id == "api_key_generic":
-            # Must be longer than 20 chars and contain mixed case/numbers
-            if len(matched_text) < 20:
-                return False
-            if not (any(c.islower() for c in matched_text) and 
-                   any(c.isupper() for c in matched_text) and
-                   any(c.isdigit() for c in matched_text)):
-                return False
-        
-        # Special validation for AWS secret keys
-        if secret_id == "aws_secret_key":
-            # Must be exactly 40 characters
-            if len(matched_text) != 40:
-                return False
-        
-        return True
-    
-    def _redact_secret(self, line: str) -> str:
-        """Redact the actual secret value while keeping context"""
-        # Replace potential secrets with asterisks
-        redacted = re.sub(r'[A-Za-z0-9/\+=]{10,}', lambda m: m.group(0)[:4] + '*' * (len(m.group(0)) - 4), line)
-        return redacted[:100] + "..." if len(redacted) > 100 else redacted
-    
-    def _check_environment_files(self) -> int:
-        env_files = [
-            ".env", ".env.local", ".env.development", ".env.production",
-            ".env.staging", ".env.test", ".environment"
-        ]
-        
-        checks = 0
-        for env_file in env_files:
-            env_path = self.target_path / env_file
-            if env_path.exists():
-                checks += 1
-                self._analyze_env_file(env_path)
-                
-        return checks
-    
-    def _analyze_env_file(self, env_path: Path):
-        try:
-            content = env_path.read_text()
-            lines = content.split('\n')
-            
-            for line_num, line in enumerate(lines, 1):
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    if '=' in line:
-                        key, value = line.split('=', 1)
-                        self._check_env_variable(key.strip(), value.strip(), env_path, line_num)
-                        
-        except Exception as e:
-            self.add_finding(Finding(
-                id="SECRET-ENV-001",
-                title="Environment File Read Error",
-                description=f"Could not read environment file: {e}",
-                severity=Severity.LOW,
-                category="secrets",
-                file_path=str(env_path)
-            ))
-    
-    def _check_env_variable(self, key: str, value: str, env_path: Path, line_num: int):
-        sensitive_keys = [
-            "password", "secret", "key", "token", "api", "auth",
-            "database_url", "db_password", "jwt_secret", "private_key"
-        ]
-        
-        key_lower = key.lower()
-        
-        if any(sensitive in key_lower for sensitive in sensitive_keys):
-            if value and value not in ["", '""', "''", "your_secret_here", "change_me"]:
-                severity = Severity.HIGH
-                
-                # Check for particularly dangerous secrets
-                if any(critical in key_lower for critical in ["production", "prod", "live"]):
-                    severity = Severity.CRITICAL
-                
+            # Check if file is properly ignored
+            if not self._is_ignored_by_git(file_path):
                 self.add_finding(Finding(
-                    id="SECRET-ENV-002",
-                    title="Sensitive Environment Variable",
-                    description=f"Environment variable '{key}' contains sensitive information",
+                    id="EXPOSED-001",
+                    title=f"Exposed Sensitive File: {description}",
+                    description=f"Sensitive file '{file_path.name}' is not excluded from version control",
                     severity=severity,
                     category="secrets",
-                    file_path=str(env_path),
-                    line_number=line_num,
-                    evidence=f"{key}={value[:10]}..." if len(value) > 10 else f"{key}=***",
-                    recommendation="Consider using a secret management system or encrypted env files"
+                    file_path=str(file_path),
+                    recommendation=f"Add '{file_path.name}' to .gitignore to prevent accidental commits"
                 ))
-    
-    def _check_config_files(self) -> int:
-        config_patterns = [
-            "config/*.yml", "config/*.yaml", "config/*.json",
-            "*.config.js", "*.config.json", "application.properties",
-            "database.yml", "secrets.yml"
-        ]
         
-        checks = 0
-        for pattern in config_patterns:
-            config_files = list(self.target_path.glob(f"**/{pattern}"))
-            for config_file in config_files:
-                if config_file.is_file():
-                    checks += 1
-                    self._scan_file_content(config_file)
-                    
-        return checks
+        return max(checks, 1)
     
-    def _check_history_files(self) -> int:
-        history_files = [
-            Path.home() / ".bash_history",
-            Path.home() / ".zsh_history", 
-            Path.home() / ".history",
-            Path.home() / ".mysql_history",
-            Path.home() / ".psql_history"
-        ]
+    def _check_gitignore_coverage(self) -> int:
+        """Check if .gitignore exists and covers common sensitive patterns"""
+        gitignore_path = self.target_path / ".gitignore"
         
-        checks = 0
-        for history_file in history_files:
-            if history_file.exists():
-                checks += 1
-                self._analyze_history_file(history_file)
-                
-        return checks
-    
-    def _analyze_history_file(self, history_path: Path):
+        if not gitignore_path.exists():
+            self.add_finding(Finding(
+                id="GITIGNORE-001",
+                title="Missing .gitignore File",
+                description="No .gitignore found - sensitive files may be accidentally committed",
+                severity=Severity.HIGH,
+                category="secrets",
+                file_path=str(self.target_path),
+                recommendation="Create a .gitignore file to exclude sensitive files from version control"
+            ))
+            return 1
+        
+        # Check for common patterns that should be in .gitignore
+        recommended_patterns = {
+            ".env": "Environment files",
+            "*.log": "Log files", 
+            "node_modules/": "Node.js dependencies",
+            "__pycache__/": "Python cache",
+            "*.pyc": "Python compiled files",
+            ".DS_Store": "macOS metadata",
+            "Thumbs.db": "Windows thumbnails",
+            "*.swp": "Vim swap files",
+            ".vscode/": "VS Code settings (optional)",
+            ".idea/": "IntelliJ settings (optional)",
+        }
+        
         try:
-            content = history_path.read_text(errors='ignore')
-            lines = content.split('\n')
+            gitignore_content = gitignore_path.read_text()
             
-            suspicious_commands = [
-                r'mysql.*-p\w+',  # MySQL with inline password
-                r'psql.*password=\w+',  # PostgreSQL with password
-                r'curl.*Authorization.*Bearer',  # API calls with tokens
-                r'export.*SECRET.*=',  # Exporting secrets
-                r'export.*KEY.*=',  # Exporting keys
-            ]
-            
-            for line_num, line in enumerate(lines[-100:], max(1, len(lines) - 99)):  # Check last 100 commands
-                for pattern in suspicious_commands:
-                    if re.search(pattern, line, re.IGNORECASE):
+            for pattern, description in recommended_patterns.items():
+                if pattern not in gitignore_content:
+                    # Only warn for critical patterns
+                    if pattern in [".env", "*.log"]:
                         self.add_finding(Finding(
-                            id="SECRET-HISTORY-001",
-                            title="Credentials in Command History",
-                            description="Command history contains credentials or sensitive information",
+                            id="GITIGNORE-002",
+                            title="Missing Critical .gitignore Pattern",
+                            description=f"Pattern '{pattern}' not found in .gitignore ({description})",
                             severity=Severity.MEDIUM,
                             category="secrets",
-                            file_path=str(history_path),
-                            line_number=line_num,
-                            evidence=self._redact_secret(line),
-                            recommendation="Clear command history and avoid using credentials in command line"
+                            file_path=str(gitignore_path),
+                            recommendation=f"Add '{pattern}' to .gitignore to exclude {description.lower()}"
                         ))
-                        break  # Only report once per line
+        
+        except Exception:
+            pass
+        
+        return 1
+    
+    def _check_lockfiles(self) -> int:
+        """Check lock files for potential tampering indicators"""
+        checks = 0
+        
+        lockfile_patterns = [
+            "package-lock.json",
+            "yarn.lock", 
+            "composer.lock",
+            "Pipfile.lock",
+            "poetry.lock",
+            "pnpm-lock.yaml",
+            "Gemfile.lock"
+        ]
+        
+        for pattern in lockfile_patterns:
+            lockfiles = list(self.target_path.glob(f"**/{pattern}"))
+            for lockfile in lockfiles:
+                checks += 1
+                self._analyze_lockfile(lockfile)
+        
+        return max(checks, 1)
+    
+    def _analyze_lockfile(self, lockfile: Path):
+        """Analyze a lockfile for signs of tampering"""
+        try:
+            content = lockfile.read_text()
+            lines = content.split('\n')
+            
+            # Check for suspicious patterns in lockfiles
+            suspicious_patterns = [
+                # Missing integrity checks
+                (r'"resolved".*"integrity":\s*""', "Missing integrity check"),
+                (r'"version".*"resolved".*(?!"integrity")', "Dependency without integrity"),
+                
+                # Suspicious domains/URLs
+                (r'"resolved".*://(?!registry\.npmjs\.org|registry\.yarnpkg\.com)', "Non-standard registry"),
+                (r'"resolved".*localhost', "Local registry reference"),
+                (r'"resolved".*127\.0\.0\.1', "Local IP registry reference"),
+                
+                # Typosquatting indicators
+                (r'"name":\s*"[^"]*[0-9]+[^"]*"', "Package name with unusual numbers"),
+                (r'"name":\s*"[^"]*[-_][0-9]+[^"]*"', "Package name with suspicious numbering"),
+                
+                # Suspicious version patterns
+                (r'"version":\s*"0\.0\.[0-9]+"', "Suspicious version 0.0.x"),
+                (r'"version":\s*"999\.[0-9]+\.[0-9]+"', "Suspicious high version number"),
+            ]
+            
+            for line_num, line in enumerate(lines, 1):
+                for pattern, description in suspicious_patterns:
+                    if re.search(pattern, line, re.IGNORECASE):
+                        self.add_finding(Finding(
+                            id="LOCKFILE-001",
+                            title="Suspicious Lockfile Entry",
+                            description=f"Potential lockfile tampering detected: {description}",
+                            severity=Severity.HIGH,
+                            category="secrets",
+                            file_path=str(lockfile),
+                            line_number=line_num,
+                            evidence=line[:100] + "..." if len(line) > 100 else line,
+                            recommendation="Review lockfile changes and verify package authenticity"
+                        ))
+                        break
+            
+            # Check for specific NPM package tampering patterns mentioned in NOTES.md
+            if lockfile.name == "package-lock.json":
+                self._check_npm_lockfile_specific(lockfile, content, lines)
                         
         except Exception:
-            # History files might not be readable
             pass
+    
+    def _check_npm_lockfile_specific(self, lockfile: Path, content: str, lines: List[str]):
+        """Check NPM lockfile for specific tampering patterns from NOTES.md"""
+        
+        # Look for dependency without integrity check (mentioned in NOTES.md line 124)
+        if '"integrity":' not in content and '"resolved":' in content:
+            self.add_finding(Finding(
+                id="LOCKFILE-002",
+                title="NPM Dependency Without Integrity Check",
+                description="Dependencies found without integrity verification",
+                severity=Severity.CRITICAL,
+                category="secrets",
+                file_path=str(lockfile),
+                recommendation="Regenerate lockfile to ensure all dependencies have integrity checks"
+            ))
+        
+        # Check for typosquatted packages (like blakejs vs bldkejs mentioned in NOTES.md)
+        typosquat_indicators = [
+            (r'"blakejs".*"bldkejs"', "Potential blakejs tyrosquat"),
+            (r'"lodash".*"1odash"', "Potential lodash typosquat"),
+            (r'"express".*"expres"', "Potential express typosquat"),
+            (r'"react".*"raect"', "Potential react typosquat"),
+        ]
+        
+        for pattern, description in typosquat_indicators:
+            if re.search(pattern, content, re.IGNORECASE):
+                self.add_finding(Finding(
+                    id="LOCKFILE-003",
+                    title="Potential Typosquatted Package",
+                    description=f"Possible package typosquatting detected: {description}",
+                    severity=Severity.CRITICAL,
+                    category="secrets",
+                    file_path=str(lockfile),
+                    recommendation="Verify package names are correct and from trusted sources"
+                ))

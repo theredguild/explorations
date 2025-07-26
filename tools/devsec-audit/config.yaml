@@ -1,0 +1,83 @@
+# DevSec Audit Configuration
+# This file allows you to customize the security scanner behavior
+
+# Modules to scan (comment out modules you don't want to run)
+modules:
+  - git
+  - docker
+  - vscode
+  - secrets
+  - foundry
+
+# Severity levels to report (remove levels you want to filter out)
+severity_filter:
+  - critical
+  - high
+  - medium
+  - low
+  - info
+
+# Exclude directories/paths that commonly contain false positives
+exclude_paths:
+  # Third-party dependencies and libraries
+  - "**/node_modules/**"
+  - "**/vendor/**"
+  - "**/.git/**"
+  - "**/lib/**"
+  - "**/libs/**"
+  - "**/dependencies/**"
+  - "**/third_party/**"
+  - "**/external/**"
+  
+  # Build and cache directories
+  - "**/build/**"
+  - "**/dist/**"
+  - "**/target/**"
+  - "**/.next/**"
+  - "**/.nuxt/**"
+  - "**/__pycache__/**"
+  - "**/coverage/**"
+  
+  # Test fixtures and mock data (common sources of false positives)
+  - "**/test/**/*.json"
+  - "**/tests/**/*.json"
+  - "**/spec/**/*.json"
+  - "**/fixtures/**"
+  - "**/mocks/**"
+  
+  # Smart contract libraries (OpenZeppelin, Chainlink, etc)
+  - "**/openzeppelin-contracts/**"
+  - "**/openzeppelin/**"
+  - "**/chainlink/**"
+  - "**/contracts/lib/**"
+  
+  # Add your custom exclusions here
+  # Example: - "**/my-test-data/**"
+
+# Exclude specific files
+exclude_files:
+  # Test and fixture files (but NOT lock files - they can be tampered with malicious packages!)
+  - "*.test.json"
+  - "*.fixture.json"
+  - "*.mock.json"
+  - "*.spec.json"
+  
+  # Add your custom file exclusions here
+  # Example: - "my-test-file.json"
+  
+  # SECURITY NOTE: We intentionally do NOT exclude lock files (package-lock.json, yarn.lock, etc.)
+  # because they can be tampered with to install malicious packages. See NOTES.md in test repo.
+
+# Whitelist specific findings by ID (if you know they're false positives)
+whitelist:
+  # Example: Ignore a specific secret detection in a test file
+  # - id: "SECRET-AWS_ACCESS_KEY"
+  #   reason: "Test data in controlled environment"
+
+# Module scoring weights (affects overall security score calculation)
+scoring:
+  git: 20
+  docker: 20
+  vscode: 15
+  secrets: 25
+  foundry: 20

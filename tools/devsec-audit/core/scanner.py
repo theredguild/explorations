@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import yaml
+import fnmatch
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
@@ -54,15 +55,52 @@ class SecurityScanner:
         
     def _load_config(self, config_path: Optional[str]) -> Dict[str, Any]:
         default_config = {
-            "modules": ["git", "docker", "vscode", "secrets"],
+            "modules": ["git", "docker", "vscode", "secrets", "foundry"],
             "severity_filter": ["critical", "high", "medium", "low", "info"],
             "whitelist": [],
+            "exclude_paths": [
+                # Common directories with false positives
+                "**/node_modules/**",
+                "**/vendor/**",
+                "**/.git/**",
+                "**/lib/**",
+                "**/libs/**",
+                "**/dependencies/**",
+                "**/third_party/**",
+                "**/external/**",
+                # Build and cache directories
+                "**/build/**",
+                "**/dist/**",
+                "**/target/**",
+                "**/.next/**",
+                "**/.nuxt/**",
+                "**/__pycache__/**",
+                "**/coverage/**",
+                # Test fixtures and mock data
+                "**/test/**/*.json",
+                "**/tests/**/*.json",
+                "**/spec/**/*.json",
+                "**/fixtures/**",
+                "**/mocks/**",
+                # OpenZeppelin and common contract libraries
+                "**/openzeppelin-contracts/**",
+                "**/openzeppelin/**",
+                "**/chainlink/**",
+                "**/contracts/lib/**"
+            ],
+            "exclude_files": [
+                # Test and configuration files (but NOT lock files - they can be tampered!)
+                "*.test.json",
+                "*.fixture.json",
+                "*.mock.json",
+                "*.spec.json"
+            ],
             "scoring": {
                 "git": 20,
-                "docker": 25,
+                "docker": 20,
                 "vscode": 15,
                 "secrets": 25,
-                "filesystem": 15
+                "foundry": 20
             }
         }
         
@@ -140,14 +178,46 @@ class BaseSecurityModule:
             self.findings.append(finding)
     
     def _should_report_finding(self, finding: Finding) -> bool:
-        if finding.severity.value not in self.config["severity_filter"]:
+        if not self.config:
+            return True
+            
+        if finding.severity.value not in self.config.get("severity_filter", ["critical", "high", "medium", "low", "info"]):
             return False
             
         for whitelist_item in self.config.get("whitelist", []):
             if finding.id == whitelist_item.get("id"):
                 return False
+        
+        # Check if the file should be excluded
+        if finding.file_path and self._is_file_excluded(finding.file_path):
+            return False
                 
         return True
+    
+    def _is_file_excluded(self, file_path: str) -> bool:
+        """Check if a file should be excluded based on exclusion patterns"""
+        if not self.config:
+            return False
+            
+        path_obj = Path(file_path)
+        try:
+            relative_path = str(path_obj.relative_to(self.target_path)) if path_obj.is_absolute() else file_path
+        except ValueError:
+            # If relative_to fails, use the original path
+            relative_path = file_path
+        
+        # Check against exclude_paths patterns
+        for pattern in self.config.get("exclude_paths", []):
+            if fnmatch.fnmatch(relative_path, pattern) or fnmatch.fnmatch(str(path_obj), pattern):
+                return True
+        
+        # Check against exclude_files patterns
+        filename = path_obj.name
+        for pattern in self.config.get("exclude_files", []):
+            if fnmatch.fnmatch(filename, pattern):
+                return True
+                
+        return False
     
     def _calculate_module_score(self, total_checks: int, failed_checks: int) -> int:
         if total_checks == 0:

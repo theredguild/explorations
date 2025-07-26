@@ -15,6 +15,7 @@ from modules.git_security import GitSecurityModule
 from modules.docker_security import DockerSecurityModule  
 from modules.vscode_security import VSCodeSecurityModule
 from modules.secrets_scanner import SecretsScanner
+from modules.foundry_security import FoundrySecurityModule
 
 
 @click.command()
@@ -81,13 +82,14 @@ def main(target: Path, modules: Optional[str], format: str, output: Optional[Pat
         scanner.register_module('docker', DockerSecurityModule)
         scanner.register_module('vscode', VSCodeSecurityModule)
         scanner.register_module('secrets', SecretsScanner)
+        scanner.register_module('foundry', FoundrySecurityModule)
         
         # Parse modules to scan
         modules_to_scan = None
         if modules:
             modules_to_scan = [m.strip() for m in modules.split(',')]
             # Validate module names
-            valid_modules = {'git', 'docker', 'vscode', 'secrets'}
+            valid_modules = {'git', 'docker', 'vscode', 'secrets', 'foundry'}
             invalid_modules = set(modules_to_scan) - valid_modules
             if invalid_modules:
                 click.echo(f"Error: Invalid modules: {', '.join(invalid_modules)}", err=True)

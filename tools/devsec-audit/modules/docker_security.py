@@ -29,12 +29,14 @@ class DockerSecurityModule(BaseSecurityModule):
         failed_checks = len(self.findings)
         score = self._calculate_module_score(total_checks, failed_checks)
         
+        passed_checks = max(0, total_checks - failed_checks)
+        
         return ScanResult(
             module_name=self.module_name,
             findings=self.findings,
             score=score,
             total_checks=total_checks,
-            passed_checks=total_checks - failed_checks,
+            passed_checks=passed_checks,
             failed_checks=failed_checks
         )
     
