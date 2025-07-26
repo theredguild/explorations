@@ -1,0 +1,143 @@
+# VS Code Security Rules Configuration
+# Defines security rules and patterns for VS Code-related security checks
+
+module: vscode
+description: "VS Code editor and workspace security rules"
+
+settings_rules:
+  dangerous_settings:
+    "security.workspace.trust.enabled":
+      dangerous_value: false
+      severity: medium
+      description: "Workspace trust disabled"
+      recommendation: "Enable workspace trust for better security"
+      
+    "extensions.autoUpdate":
+      dangerous_value: true
+      severity: medium
+      description: "Auto-update extensions enabled"
+      recommendation: "Consider disabling auto-updates for better control"
+      
+    "telemetry.telemetryLevel":
+      dangerous_value: "all"
+      severity: low
+      description: "Full telemetry enabled"
+      recommendation: "Consider reducing telemetry level"
+
+  terminal_settings:
+    suspicious_patterns:
+      - ".*\\.exe$"
+      - ".*powershell.*"
+      - ".*cmd.*"
+      - "/tmp/.*"
+      - ".*\\|\\|.*"
+      - ".*&&.*"
+    severity: medium
+    recommendation: "Use standard system shells"
+
+  python_settings:
+    suspicious_locations:
+      - "/tmp/"
+      - "\\\\temp\\\\"
+      - "\\.\\./.*"
+      - "http://"
+      - "https://"
+    severity: high
+    recommendation: "Use trusted Python interpreters from standard locations"
+
+  auto_execution_settings:
+    "python.terminal.activateEnvironment": true
+    "python.terminal.executeInFileDir": true
+    "code-runner.runInTerminal": true
+    "code-runner.saveFileBeforeRun": true
+    severity: low
+    recommendation: "Review auto-execution settings for security implications"
+
+tasks_rules:
+  dangerous_commands:
+    - "curl"
+    - "wget" 
+    - "powershell"
+    - "cmd"
+    - "bash"
+    - "sh"
+    - "python"
+    - "node"
+    - "eval"
+    - "exec"
+  
+  high_risk_commands:
+    - "curl"
+    - "wget"
+    - "eval"
+    - "exec"
+    
+  auto_run_settings:
+    "runOptions.runOn": "folderOpen"
+    severity: high
+    recommendation: "Avoid auto-running tasks on folder open"
+
+launch_rules:
+  suspicious_paths:
+    - "/tmp/"
+    - "\\\\temp\\\\"
+    - "../"
+    - "http"
+    
+  program_path:
+    severity: medium
+    recommendation: "Use relative paths within the workspace"
+    
+  python_path:
+    severity: high
+    recommendation: "Use trusted Python interpreters"
+    
+  external_terminal:
+    severity: low
+    recommendation: "Consider using integrated terminal for better security"
+
+extensions_rules:
+  trusted_publishers:
+    - "ms-python"
+    - "ms-vscode"
+    - "microsoft"
+    - "redhat"
+    - "golang"
+    - "rust-lang"
+    - "ms-dotnettools"
+    - "ms-vscode-remote"
+    - "github"
+    
+  high_risk_extensions:
+    - "code-runner"      # Can execute arbitrary code
+    - "remote-ssh"       # Network access
+    - "remote-containers" # Container access
+    
+  untrusted_publisher:
+    severity: medium
+    recommendation: "Verify publisher and extension security before installation"
+    
+  high_risk_extension:
+    severity: medium
+    recommendation: "Review security implications of this extension"
+
+workspace_rules:
+  trust_settings:
+    "security.workspace.trust.enabled": false
+    severity: medium
+    recommendation: "Enable workspace trust for better security"
+
+file_associations:
+  # File patterns that should trigger VS Code security checks
+  config_files:
+    - "settings.json"
+    - "tasks.json"
+    - "launch.json"
+    - "extensions.json"
+    - "*.code-workspace"
+    
+  dangerous_extensions:
+    - ".ps1"  # PowerShell scripts
+    - ".bat"  # Batch files
+    - ".cmd"  # Command files
+    - ".vbs"  # VBScript files

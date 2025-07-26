@@ -1,0 +1,134 @@
+# Docker Security Rules Configuration
+# Defines security rules and patterns for Docker-related security checks
+
+module: docker
+description: "Docker and container security rules"
+
+dockerfile_rules:
+  base_image:
+    unpinned_tags:
+      - ":latest"
+      - ""  # No tag specified
+    severity: medium
+    recommendation: "Use specific version tags for base images"
+    
+  user_security:
+    require_non_root: true
+    severity: high
+    recommendation: "Add USER instruction to run container as non-root"
+    
+  dangerous_commands:
+    - pattern: "curl\\s+.*\\|\\s*bash"
+      description: "Piping curl to bash"
+      severity: high
+    - pattern: "wget\\s+.*\\|\\s*sh"
+      description: "Piping wget to shell"
+      severity: high
+    - pattern: "chmod\\s+777"
+      description: "Overly permissive permissions"
+      severity: high
+    - pattern: "--privileged"
+      description: "Privileged mode"
+      severity: critical
+    - pattern: "--cap-add\\s+SYS_ADMIN"
+      description: "Dangerous capability"
+      severity: high
+
+  secret_patterns:
+    - pattern: "API_KEY\\s*=\\s*[\"']?[\\w-]{10,}"
+      description: "API Key in Dockerfile"
+      severity: critical
+    - pattern: "SECRET_KEY\\s*=\\s*[\"']?[\\w-]{10,}"
+      description: "Secret Key in Dockerfile"
+      severity: critical
+    - pattern: "PASSWORD\\s*=\\s*[\"']?[\\w-]{5,}"
+      description: "Password in Dockerfile"
+      severity: critical
+
+  dangerous_ports:
+    "22": "SSH"
+    "3389": "RDP"
+    "5432": "PostgreSQL"
+    "3306": "MySQL"
+    "27017": "MongoDB"
+    "6379": "Redis"
+    severity: medium
+    recommendation: "Only expose necessary ports and use proper authentication"
+
+compose_rules:
+  privileged_containers:
+    severity: critical
+    recommendation: "Remove privileged mode unless absolutely necessary"
+    
+  dangerous_volumes:
+    - path: "/"
+      description: "Root filesystem mount"
+      severity: critical
+    - path: "/etc"
+      description: "System configuration mount"
+      severity: high
+    - path: "/var/run/docker.sock"
+      description: "Docker socket mount"
+      severity: high
+    - path: "/proc"
+      description: "Process filesystem mount"
+      severity: high
+    - path: "/sys"
+      description: "System filesystem mount"
+      severity: high
+
+  dangerous_capabilities:
+    - "SYS_ADMIN"
+    - "NET_ADMIN"
+    - "SYS_PTRACE"
+    - "SYS_MODULE"
+    severity: high
+    recommendation: "Only add necessary capabilities"
+
+devcontainer_rules:
+  privileged_mode:
+    severity: high
+    recommendation: "Remove privileged mode unless absolutely necessary"
+    
+  dangerous_mounts:
+    - "/"
+    - "/etc"
+    - "/var/run/docker.sock"
+    
+  post_create_commands:
+    dangerous_patterns:
+      - "curl"
+      - "wget"
+      - "sudo"
+      - "chmod 777"
+    severity: medium
+    recommendation: "Review and sanitize post-create commands"
+
+dockerignore_rules:
+  required_patterns:
+    - ".env"
+    - "*.key"
+    - "*.pem"
+    - ".git"
+    - "node_modules"
+    - "*.log"
+  severity: low
+  recommendation: "Add sensitive file patterns to .dockerignore"
+
+trusted_registries:
+  - "gcr.io"
+  - "quay.io"
+  - "registry.redhat.io"
+  - "docker.io" # For official images only
+
+official_images:
+  - "ubuntu"
+  - "debian"
+  - "alpine"
+  - "centos"
+  - "fedora"
+  - "node"
+  - "python"
+  - "nginx"
+  - "redis"
+  - "postgres"

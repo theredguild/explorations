@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+"""
+DevSec Audit - Security Auditor for Development Environments
+Entry point script for the devsec-audit tool
+"""
+
+import sys
+import os
+from pathlib import Path
+
+# Add the project root to Python path
+project_root = Path(__file__).parent.resolve()
+sys.path.insert(0, str(project_root))
+
+# Import and run the main CLI
+from core.cli import main
+
+if __name__ == '__main__':
+    main()

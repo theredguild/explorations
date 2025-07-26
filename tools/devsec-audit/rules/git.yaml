@@ -1,0 +1,70 @@
+# Git Security Rules Configuration
+# Defines security rules and patterns for Git-related security checks
+
+module: git
+description: "Git configuration and repository security rules"
+
+rules:
+  dangerous_aliases:
+    - pattern: "^!\s*.*"
+      description: "Shell command execution in git alias"
+      severity: high
+      recommendation: "Remove shell command execution from git aliases"
+      
+  credential_patterns:
+    - pattern: "://.*[@:].*@"
+      description: "Credentials embedded in Git URL"
+      severity: high
+      recommendation: "Use SSH keys or credential helpers instead"
+      
+  dangerous_hooks:
+    - pattern: "curl\\s+.*\\|\\s*(bash|sh)"
+      description: "Remote script execution via curl in git hook"
+      severity: critical
+      recommendation: "Remove remote script execution from git hooks"
+    - pattern: "wget\\s+.*\\|\\s*(bash|sh)"
+      description: "Remote script execution via wget in git hook"
+      severity: critical
+      recommendation: "Remove remote script execution from git hooks"
+      
+  core_settings:
+    editor:
+      dangerous_patterns:
+        - "\\|"
+        - ";"
+        - "&&"
+        - "curl"
+        - "wget"
+      severity: medium
+      recommendation: "Use a simple text editor path"
+      
+    pager:
+      dangerous_patterns:
+        - "\\|"
+        - ";"
+        - "&&"
+        - "curl"
+        - "wget"
+        - "eval"
+      severity: medium
+      recommendation: "Use a simple pager like 'less' or 'more'"
+
+ssh_security:
+  permissions:
+    private_key_max: "600"
+    severity: high
+    recommendation: "Set SSH private key permissions to 600"
+    
+  encryption:
+    require_passphrase: true
+    severity: medium
+    recommendation: "Use passphrase-protected SSH keys"
+
+whitelist:
+  # Patterns to ignore during scanning
+  - pattern: "example"
+    reason: "Example configurations"
+  - pattern: "test.*"
+    reason: "Test files and configurations"
+  - pattern: "dummy"
+    reason: "Dummy/placeholder values"
